@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARENA Roster Intel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #1a1a2e;
+      --accent: #e94560;
+      --signed: #198754;
+      --ghost: #dc3545;
+      --gap: #fd7e14;
+      --pending: #6c757d;
+    }
+    body { background: #f4f6f9; font-size: 0.875rem; }
+
+    /* Nav */
+    .navbar { background: var(--brand); }
+    .navbar-brand { font-weight: 700; letter-spacing: .5px; color: #fff !important; font-size: 1.1rem; }
+    .navbar-brand span { color: var(--accent); }
+
+    /* Stats bar */
+    .stat-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 20px;
+      border-left: 4px solid var(--brand);
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .stat-card.signed  { border-color: var(--signed); }
+    .stat-card.ghost   { border-color: var(--ghost); }
+    .stat-card.gap     { border-color: var(--gap); }
+    .stat-card.actions { border-color: var(--accent); }
+    .stat-num  { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: .72rem; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+
+    /* Filter bar */
+    .filter-bar { background: #fff; border-radius: 10px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    .filter-bar .form-select, .filter-bar .form-control { font-size: .82rem; }
+
+    /* Table */
+    .table-wrap { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07); overflow: hidden; }
+    .table { margin-bottom: 0; }
+    .table thead th {
+      background: var(--brand);
+      color: #fff;
+      font-weight: 500;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      border: none;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      padding: 10px 14px;
+    }
+    .table thead th:hover { background: #2a2a4e; }
+    .table thead th .sort-icon { opacity: .4; font-size: .7rem; margin-left: 3px; }
+    .table thead th.active-sort .sort-icon { opacity: 1; }
+    .table tbody tr { cursor: pointer; transition: background .1s; }
+    .table tbody tr:hover { background: #f0f4ff; }
+    .table td { vertical-align: middle; padding: 9px 14px; border-color: #f0f0f0; }
+
+    /* Badges */
+    .badge-roster {
+      font-size: .72rem;
+      padding: 4px 9px;
+      border-radius: 20px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-signed  { background: #d1fae5; color: #065f46; }
+    .badge-ghost   { background: #fee2e2; color: #991b1b; }
+    .badge-gap     { background: #ffedd5; color: #9a3412; }
+    .badge-pending { background: #f3f4f6; color: #374151; }
+
+    .badge-completed   { background: #d1fae5; color: #065f46; font-size: .72rem; padding: 3px 8px; border-radius: 20px; }
+    .badge-incomplete  { background: #fee2e2; color: #991b1b; font-size: .72rem; padding: 3px 8px; border-radius: 20px; }
+
+    .athlete-name { font-weight: 600; }
+    .athlete-email { font-size: .72rem; color: #9ca3af; }
+    .notes-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6b7280; font-style: italic; }
+
+    /* Pagination */
+    .pagination-bar { padding: 12px 18px; background: #fafafa; border-top: 1px solid #f0f0f0; }
+
+    /* Modal */
+    .modal-header { background: var(--brand); color: #fff; }
+    .modal-header .btn-close { filter: invert(1); }
+    .modal-athlete-name { font-weight: 700; font-size: 1.1rem; }
+    .modal-meta { font-size: .8rem; color: #9ca3af; }
+    .field-label { font-size: .75rem; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+
+    /* Empty state */
+    .empty-state { padding: 60px 20px; text-align: center; color: #9ca3af; }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+
+    /* Loading */
+    .loading-row td { text-align: center; padding: 40px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-dark px-4 py-3">
+  <span class="navbar-brand"><span>ARENA</span> Roster Intel</span>
+  <div class="d-flex gap-2 align-items-center">
+    <span id="last-synced-label" class="text-white-50" style="font-size:.78rem"></span>
+    <a href="/api/export.csv" class="btn btn-sm btn-outline-light">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </a>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-3" style="max-width: 1600px;">
+
+  <!-- Stats -->
+  <div class="row g-3 mb-3" id="stats-row">
+    <div class="col-6 col-md-2">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">Total Athletes</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card signed">
+        <div class="stat-num" id="stat-signed">—</div>
+        <div class="stat-label">✅ Signed</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card ghost">
+        <div class="stat-num" id="stat-ghost">—</div>
+        <div class="stat-label">🚨 Ghost</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card gap">
+        <div class="stat-num" id="stat-gap">—</div>
+        <div class="stat-label">⚠️ Gap</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-pending">—</div>
+        <div class="stat-label">🔄 Pending</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card actions">
+        <div class="stat-num" id="stat-actions">—</div>
+        <div class="stat-label">Open Actions</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar mb-3">
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md-3">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" id="search" class="form-control border-start-0" placeholder="Search athlete, school, email…">
+        </div>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-school" class="form-select form-select-sm">
+          <option value="">All Schools</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-sport" class="form-select form-select-sm">
+          <option value="">All Sports</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-roster" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          <option value="✅ Signed">✅ Signed</option>
+          <option value="🚨 Ghost">🚨 Ghost</option>
+          <option value="⚠️ Gap">⚠️ Gap</option>
+          <option value="🔄 Pending Review">🔄 Pending Review</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-completed" class="form-select form-select-sm">
+          <option value="">All Actions</option>
+          <option value="no">Action Incomplete</option>
+          <option value="yes">Action Complete</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-1 text-end">
+        <button class="btn btn-sm btn-outline-secondary w-100" onclick="resetFilters()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-responsive">
+      <table class="table table-hover" id="athletes-table">
+        <thead>
+          <tr>
+            <th data-sort="athlete_name">Athlete <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="school">School <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="sport">Sport <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="roster_match">Roster Match <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="action_needed">Action Needed <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="action_completed">Completed <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="lifetime_sales">Lifetime Sales <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr class="loading-row"><td colspan="8"><i class="bi bi-arrow-repeat spin me-2"></i>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-bar d-flex justify-content-between align-items-center">
+      <span id="page-info" class="text-muted" style="font-size:.8rem"></span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="btn-prev" onclick="changePage(-1)" disabled>
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-next" onclick="changePage(1)" disabled>
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div class="modal-athlete-name" id="modal-name"></div>
+          <div class="modal-meta" id="modal-meta"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Read-only summary -->
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-3">
+            <div class="field-label">Roster Match</div>
+            <div id="modal-roster-match"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="field-label">ARENA Status</div>
+            <div id="modal-arena-status" class="text-muted"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="field-label">Lifetime Sales</div>
+            <div id="modal-sales" class="text-muted"></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="field-label">Lifetime Orders</div>
+            <div id="modal-orders" class="text-muted"></div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <!-- Editable fields -->
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <div class="field-label">Action Needed</div>
+            <select class="form-select form-select-sm" id="edit-action-needed">
+              <option value="None">None</option>
+              <option value="Check Transfer Status">Check Transfer Status</option>
+              <option value="Reach Out to Sign">Reach Out to Sign</option>
+              <option value="Send Contract">Send Contract</option>
+              <option value="Follow Up">Follow Up</option>
+              <option value="Review Deal Terms">Review Deal Terms</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="field-label">Action Completed</div>
+            <select class="form-select form-select-sm" id="edit-action-completed">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="field-label">Portal Status</div>
+            <select class="form-select form-select-sm" id="edit-portal-status">
+              <option value="Not Flagged">Not Flagged</option>
+              <option value="Possible Transfer">Possible Transfer</option>
+              <option value="In Portal">In Portal</option>
+              <option value="Transferred">Transferred</option>
+              <option value="Confirmed Enrolled">Confirmed Enrolled</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="field-label">New School</div>
+            <input type="text" class="form-control form-control-sm" id="edit-new-school" placeholder="If transferred…">
+          </div>
+          <div class="col-12">
+            <div class="field-label">Notes</div>
+            <textarea class="form-control form-control-sm" id="edit-notes" rows="3" placeholder="Free text for your team…"></textarea>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <span id="save-status" class="text-muted me-auto" style="font-size:.8rem"></span>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" style="background:var(--brand)" onclick="saveEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+  let state = { page: 1, perPage: 50, sort: "athlete_name", dir: "asc", total: 0, pages: 0 };
+  let filters = { search: "", school: "", sport: "", roster_match: "", action_completed: "" };
+  let editingId = null;
+  let searchTimer = null;
+  const modal = new bootstrap.Modal(document.getElementById("editModal"));
+
+  // ---------------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    loadFilterOptions();
+    loadStats();
+    loadAthletes();
+
+    document.getElementById("search").addEventListener("input", e => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { filters.search = e.target.value; state.page = 1; loadAthletes(); }, 350);
+    });
+    document.getElementById("filter-school").addEventListener("change", e => { filters.school = e.target.value; state.page = 1; loadAthletes(); });
+    document.getElementById("filter-sport").addEventListener("change", e => { filters.sport = e.target.value; state.page = 1; loadAthletes(); });
+    document.getElementById("filter-roster").addEventListener("change", e => { filters.roster_match = e.target.value; state.page = 1; loadAthletes(); });
+    document.getElementById("filter-completed").addEventListener("change", e => { filters.action_completed = e.target.value; state.page = 1; loadAthletes(); });
+
+    document.querySelectorAll("th[data-sort]").forEach(th => {
+      th.addEventListener("click", () => {
+        const col = th.dataset.sort;
+        if (state.sort === col) state.dir = state.dir === "asc" ? "desc" : "asc";
+        else { state.sort = col; state.dir = "asc"; }
+        state.page = 1;
+        updateSortHeaders();
+        loadAthletes();
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Data loading
+  // ---------------------------------------------------------------------------
+  function buildParams() {
+    const p = new URLSearchParams({
+      page: state.page, per_page: state.perPage,
+      sort: state.sort, dir: state.dir,
+    });
+    if (filters.search)           p.set("search", filters.search);
+    if (filters.school)           p.set("school", filters.school);
+    if (filters.sport)            p.set("sport", filters.sport);
+    if (filters.roster_match)     p.set("roster_match", filters.roster_match);
+    if (filters.action_completed) p.set("action_completed", filters.action_completed);
+    return p;
+  }
+
+  async function loadAthletes() {
+    document.getElementById("table-body").innerHTML =
+      `<tr class="loading-row"><td colspan="8"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>`;
+    const res = await fetch("/api/athletes?" + buildParams());
+    const data = await res.json();
+    state.total = data.total;
+    state.pages = data.pages;
+    renderTable(data.athletes);
+    renderPagination();
+  }
+
+  async function loadStats() {
+    const res = await fetch("/api/stats");
+    const d = await res.json();
+    document.getElementById("stat-total").textContent   = d.total.toLocaleString();
+    document.getElementById("stat-signed").textContent  = d.signed.toLocaleString();
+    document.getElementById("stat-ghost").textContent   = d.ghost.toLocaleString();
+    document.getElementById("stat-gap").textContent     = d.gap.toLocaleString();
+    document.getElementById("stat-pending").textContent = d.pending.toLocaleString();
+    document.getElementById("stat-actions").textContent = d.open_actions.toLocaleString();
+  }
+
+  async function loadFilterOptions() {
+    const res = await fetch("/api/filter-options");
+    const d = await res.json();
+    const schoolSel = document.getElementById("filter-school");
+    d.schools.forEach(s => schoolSel.add(new Option(s, s)));
+    const sportSel = document.getElementById("filter-sport");
+    d.sports.forEach(s => sportSel.add(new Option(fmtSport(s), s)));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  function renderTable(athletes) {
+    const tbody = document.getElementById("table-body");
+    if (!athletes.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="bi bi-search"></i>No athletes match your filters.</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = athletes.map(a => `
+      <tr onclick="openEdit(${a.id})">
+        <td>
+          <div class="athlete-name">${esc(a.athlete_name)}</div>
+          <div class="athlete-email">${esc(a.email || "")}</div>
+        </td>
+        <td>${esc(a.school || "")}</td>
+        <td>${esc(fmtSport(a.sport || ""))}</td>
+        <td>${rosterBadge(a.roster_match)}</td>
+        <td>${a.action_needed && a.action_needed !== "None" ? `<span class="text-danger fw-semibold">${esc(a.action_needed)}</span>` : '<span class="text-muted">—</span>'}</td>
+        <td>${a.action_completed
+          ? '<span class="badge-completed">Yes</span>'
+          : (a.action_needed && a.action_needed !== "None"
+              ? '<span class="badge-incomplete">No</span>'
+              : '<span class="text-muted">—</span>')}</td>
+        <td>${a.lifetime_sales ? '$' + Number(a.lifetime_sales).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '<span class="text-muted">$0</span>'}</td>
+        <td class="notes-cell">${esc(a.notes || "")}</td>
+      </tr>
+    `).join("");
+  }
+
+  function renderPagination() {
+    const start = (state.page - 1) * state.perPage + 1;
+    const end   = Math.min(state.page * state.perPage, state.total);
+    document.getElementById("page-info").textContent =
+      state.total ? `${start.toLocaleString()}–${end.toLocaleString()} of ${state.total.toLocaleString()} athletes` : "No results";
+    document.getElementById("btn-prev").disabled = state.page <= 1;
+    document.getElementById("btn-next").disabled = state.page >= state.pages;
+  }
+
+  function updateSortHeaders() {
+    document.querySelectorAll("th[data-sort]").forEach(th => {
+      const icon = th.querySelector(".sort-icon");
+      th.classList.remove("active-sort");
+      icon.className = "bi bi-chevron-expand sort-icon";
+      if (th.dataset.sort === state.sort) {
+        th.classList.add("active-sort");
+        icon.className = `bi bi-chevron-${state.dir === "asc" ? "up" : "down"} sort-icon`;
+      }
+    });
+  }
+
+  function changePage(delta) {
+    state.page = Math.max(1, Math.min(state.pages, state.page + delta));
+    loadAthletes();
+  }
+
+  function resetFilters() {
+    filters = { search: "", school: "", sport: "", roster_match: "", action_completed: "" };
+    document.getElementById("search").value = "";
+    document.getElementById("filter-school").value = "";
+    document.getElementById("filter-sport").value = "";
+    document.getElementById("filter-roster").value = "";
+    document.getElementById("filter-completed").value = "";
+    state.page = 1;
+    loadAthletes();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Edit modal
+  // ---------------------------------------------------------------------------
+  async function openEdit(id) {
+    editingId = id;
+    const res = await fetch(`/api/athletes?page=1&per_page=1&search=`);
+    // Fetch the specific athlete by loading full list and finding by id
+    // (simpler than a dedicated GET /api/athletes/:id endpoint)
+    const allRes = await fetch(`/api/athletes?` + buildParams() + `&per_page=500`);
+    const allData = await allRes.json();
+    const a = allData.athletes.find(x => x.id === id);
+    if (!a) return;
+
+    document.getElementById("modal-name").textContent = a.athlete_name;
+    document.getElementById("modal-meta").textContent =
+      [a.school, fmtSport(a.sport), a.email, a.jersey_number ? `#${a.jersey_number}` : ""].filter(Boolean).join(" · ");
+    document.getElementById("modal-roster-match").innerHTML = rosterBadge(a.roster_match);
+    document.getElementById("modal-arena-status").textContent = a.arena_status || "—";
+    document.getElementById("modal-sales").textContent = a.lifetime_sales
+      ? "$" + Number(a.lifetime_sales).toLocaleString("en-US", {minimumFractionDigits:2})
+      : "$0.00";
+    document.getElementById("modal-orders").textContent = (a.lifetime_orders || 0) + " orders";
+
+    setSelectValue("edit-action-needed", a.action_needed || "None");
+    setSelectValue("edit-action-completed", a.action_completed ? "true" : "false");
+    setSelectValue("edit-portal-status", a.portal_status || "Not Flagged");
+    document.getElementById("edit-new-school").value = a.new_school || "";
+    document.getElementById("edit-notes").value = a.notes || "";
+    document.getElementById("save-status").textContent = "";
+
+    modal.show();
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const payload = {
+      action_needed:    document.getElementById("edit-action-needed").value,
+      action_completed: document.getElementById("edit-action-completed").value === "true",
+      portal_status:    document.getElementById("edit-portal-status").value,
+      new_school:       document.getElementById("edit-new-school").value.trim() || null,
+      notes:            document.getElementById("edit-notes").value.trim() || null,
+    };
+    document.getElementById("save-status").textContent = "Saving…";
+    const res = await fetch(`/api/athletes/${editingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      document.getElementById("save-status").textContent = "Saved ✓";
+      setTimeout(() => modal.hide(), 600);
+      loadAthletes();
+      loadStats();
+    } else {
+      document.getElementById("save-status").textContent = "Error — please try again.";
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+  function rosterBadge(status) {
+    if (!status) return '<span class="badge-roster badge-pending">—</span>';
+    if (status.includes("Signed"))  return `<span class="badge-roster badge-signed">${status}</span>`;
+    if (status.includes("Ghost"))   return `<span class="badge-roster badge-ghost">${status}</span>`;
+    if (status.includes("Gap"))     return `<span class="badge-roster badge-gap">${status}</span>`;
+    return `<span class="badge-roster badge-pending">${status}</span>`;
+  }
+
+  function fmtSport(s) {
+    if (!s) return "";
+    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function setSelectValue(id, val) {
+    const sel = document.getElementById(id);
+    // Try to find matching option; if not found leave as-is
+    for (let o of sel.options) { if (o.value === val) { sel.value = val; return; } }
+    // Value not in list — add it temporarily
+    const opt = new Option(val, val);
+    sel.add(opt);
+    sel.value = val;
+  }
+</script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin .8s linear infinite; }
+</style>
+
+</body>
+</html>
