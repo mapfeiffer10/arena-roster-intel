@@ -23,6 +23,7 @@ from config import (
     FUZZY_MATCH_THRESHOLD,
     SCHOOL_DOMAINS,
     SPORT_SLUGS,
+    SPORT_ROSTER_YEARS,
     TARGET_SPORTS,
 )
 from models import db, Athlete
@@ -128,14 +129,23 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
         return [], False
 
     slug = SPORT_SLUGS.get(sport, sport)
-    url = f"https://{domain}/sports/{slug}/roster"
+    year = SPORT_ROSTER_YEARS.get(sport)
+    base_url = f"https://{domain}/sports/{slug}/roster"
 
-    names = fetch_roster_static(url)
-    if names:
-        return names, False
+    # Try year-specific URL first, fall back to base (no year) if empty
+    urls_to_try = [f"{base_url}/{year}", base_url] if year else [base_url]
 
-    logger.info("Static empty for %s %s — trying Playwright…", school, sport)
-    return fetch_roster_playwright(url), True
+    for url in urls_to_try:
+        names = fetch_roster_static(url)
+        if names:
+            logger.info("Scraped %d names from %s", len(names), url)
+            return names, False
+
+    # Static failed on all URLs — try Playwright on the year-specific URL
+    primary_url = urls_to_try[0]
+    logger.info("Static empty for %s %s — trying Playwright on %s", school, sport, primary_url)
+    names = fetch_roster_playwright(primary_url)
+    return names, True
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +202,8 @@ def process_school_sport(school: str, sport: str, dry_run: bool = False) -> dict
         stats["errors"] += 1
         return stats
 
-    logger.info("Scraped %d players (playwright=%s)", len(roster_names), used_playwright)
+    if used_playwright:
+        logger.info("Playwright returned %d players for %s %s", len(roster_names), school, sport)
 
     arena_athletes = fetch_arena_for_school_sport(school, sport)
     logger.info("ARENA: %d live athletes", len(arena_athletes))
