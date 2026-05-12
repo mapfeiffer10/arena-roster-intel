@@ -128,14 +128,18 @@ def scrape_roster_html(html: str) -> list[str]:
     return []
 
 
-def fetch_roster_static(url: str) -> list[str]:
+def fetch_roster_static(url: str) -> tuple[list[str], bool]:
+    """Returns (names, got_404). got_404=True means skip Playwright — page doesn't exist."""
     try:
         resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        if resp.status_code == 404:
+            logger.warning("404 for %s — skipping Playwright", url)
+            return [], True
         resp.raise_for_status()
-        return scrape_roster_html(resp.text)
+        return scrape_roster_html(resp.text), False
     except Exception as exc:
         logger.warning("Static fetch failed for %s: %s", url, exc)
-        return []
+        return [], False
 
 
 def fetch_roster_playwright(url: str) -> list[str]:
@@ -167,13 +171,21 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
     # Try year-specific URL first, fall back to base (no year) if empty
     urls_to_try = [f"{base_url}/{year}", base_url] if year else [base_url]
 
+    got_404_everywhere = True
     for url in urls_to_try:
-        names = fetch_roster_static(url)
+        names, got_404 = fetch_roster_static(url)
         if names:
             logger.info("Scraped %d names from %s", len(names), url)
             return names, False
+        if not got_404:
+            got_404_everywhere = False
 
-    # Static failed on all URLs — try Playwright on the year-specific URL
+    # If every URL returned a 404, the school doesn't use this path — skip Playwright
+    if got_404_everywhere:
+        logger.warning("All URLs 404 for %s %s — skipping Playwright", school, sport)
+        return [], False
+
+    # Static returned empty (JS-rendered) — try Playwright on the year-specific URL
     primary_url = urls_to_try[0]
     logger.info("Static empty for %s %s — trying Playwright on %s", school, sport, primary_url)
     names = fetch_roster_playwright(primary_url)
