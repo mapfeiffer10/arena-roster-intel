@@ -320,6 +320,14 @@ def process_school_sport(school: str, sport: str, dry_run: bool = False) -> dict
             continue
 
         try:
+            existing_gap = Athlete.query.filter_by(
+                athlete_name=roster_name, school=school, sport=sport
+            ).first()
+            if existing_gap:
+                existing_gap.last_synced = today
+                stats["gap"] += 1
+                continue
+
             row = Athlete(
                 athlete_name     = roster_name,
                 school           = school,
