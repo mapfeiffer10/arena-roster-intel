@@ -147,7 +147,7 @@ SCHOOL_DOMAINS = {
     "Rutgers":          "scarletknights.com",
     "Wisconsin":        "uwbadgers.com",
     "UCLA":             "uclabruins.com",
-    "USC":              "usctrojans.com",
+    "University of Southern California": "usctrojans.com",
     "Oregon":           "goducks.com",
     "Washington":       "gohuskies.com",
     # ---- Power 4: Big 12 ----
