@@ -25,7 +25,11 @@ def is_power4(school_name: str) -> bool:
     if not school_name:
         return False
     s = school_name.lower()
-    return any(kw in s for kw in POWER_4_KEYWORDS)
+    # Check for exact match first (most reliable)
+    if s in POWER_4_KEYWORDS:
+        return True
+    # Bidirectional substring: our key contains ARENA name OR ARENA name contains our key
+    return any(kw in s or s in kw for kw in POWER_4_KEYWORDS)
 
 
 def fetch_all_arena_athletes() -> list[dict]:
