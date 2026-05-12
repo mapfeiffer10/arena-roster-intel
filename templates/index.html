@@ -211,11 +211,12 @@
             <th data-sort="action_needed">Action Needed <i class="bi bi-chevron-expand sort-icon"></i></th>
             <th data-sort="action_completed">Completed <i class="bi bi-chevron-expand sort-icon"></i></th>
             <th data-sort="lifetime_sales">Lifetime Sales <i class="bi bi-chevron-expand sort-icon"></i></th>
+            <th data-sort="last_synced">Last Synced <i class="bi bi-chevron-expand sort-icon"></i></th>
             <th>Notes</th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr class="loading-row"><td colspan="8"><i class="bi bi-arrow-repeat spin me-2"></i>Loading…</td></tr>
+          <tr class="loading-row"><td colspan="9"><i class="bi bi-arrow-repeat spin me-2"></i>Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -414,7 +415,7 @@
   function renderTable(athletes) {
     const tbody = document.getElementById("table-body");
     if (!athletes.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="bi bi-search"></i>No athletes match your filters.</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><i class="bi bi-search"></i>No athletes match your filters.</div></td></tr>`;
       return;
     }
     tbody.innerHTML = athletes.map(a => `
@@ -433,6 +434,7 @@
               ? '<span class="badge-incomplete">No</span>'
               : '<span class="text-muted">—</span>')}</td>
         <td>${a.lifetime_sales ? '$' + Number(a.lifetime_sales).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '<span class="text-muted">$0</span>'}</td>
+        <td class="text-muted">${esc(a.last_synced || "—")}</td>
         <td class="notes-cell">${esc(a.notes || "")}</td>
       </tr>
     `).join("");
