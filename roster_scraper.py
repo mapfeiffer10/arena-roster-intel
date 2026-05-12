@@ -75,10 +75,19 @@ def name_similarity(a: str, b: str) -> int:
 # ---------------------------------------------------------------------------
 
 SIDEARM_SELECTORS = [
+    # Modern Sidearm (2024+) — scoped to players section only, not coaching staff
+    ".c-rosterpage__players .s-person-card h3",
+    ".c-rosterpage__players .s-person-card__content h3",
+    # Modern Sidearm without section scoping (fallback)
+    ".s-person-card h3",
+    ".s-person-card__content h3",
+    # Older Sidearm — person details
     ".s-person-details__personal-single-item a",
     ".s-person-details__name",
+    # Legacy Sidearm
     ".roster_player_name a",
     ".roster_player_name",
+    # Generic fallbacks
     "[data-bind*='full_name']",
     ".player-name a",
     ".player-name",
@@ -89,10 +98,33 @@ SIDEARM_SELECTORS = [
 
 def scrape_roster_html(html: str) -> list[str]:
     soup = BeautifulSoup(html, "lxml")
+
+    # Build a set of staff/coach names to exclude — Sidearm puts these in
+    # c-rosterpage__coaching-staff sections with the same card markup as players
+    staff_selectors = [
+        ".c-rosterpage__coaching-staff h3",
+        ".c-rosterpage__coaching-staff .s-person-card h3",
+        ".c-rosterpage__staff h3",
+    ]
+    staff_names: set[str] = set()
+    for sel in staff_selectors:
+        for el in soup.select(sel):
+            name = el.get_text(strip=True)
+            if name:
+                staff_names.add(name)
+
     for selector in SIDEARM_SELECTORS:
-        names = [el.get_text(strip=True) for el in soup.select(selector) if el.get_text(strip=True)]
-        if len(names) >= 5:
-            return names
+        raw = [el.get_text(strip=True) for el in soup.select(selector) if el.get_text(strip=True)]
+        if len(raw) >= 5:
+            # Deduplicate (Sidearm renders both card + list view) and strip staff
+            seen: set[str] = set()
+            names = []
+            for n in raw:
+                if n not in seen and n not in staff_names:
+                    seen.add(n)
+                    names.append(n)
+            if len(names) >= 5:
+                return names
     return []
 
 
