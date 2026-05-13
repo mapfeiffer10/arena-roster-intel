@@ -22,6 +22,7 @@ from config import (
     ARENA_PAGE_SIZE,
     FUZZY_MATCH_THRESHOLD,
     SCHOOL_DOMAINS,
+    SCHOOL_SPORT_SLUG_OVERRIDES,
     SPORT_SLUGS,
     SPORT_ROSTER_YEARS,
     TARGET_SPORTS,
@@ -164,7 +165,7 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
         logger.error("No domain configured for school: %s", school)
         return [], False
 
-    slug = SPORT_SLUGS.get(sport, sport)
+    slug = SCHOOL_SPORT_SLUG_OVERRIDES.get((school, sport)) or SPORT_SLUGS.get(sport, sport)
     year = SPORT_ROSTER_YEARS.get(sport)
     base_url = f"https://{domain}/sports/{slug}/roster"
 
@@ -172,6 +173,7 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
     urls_to_try = [f"{base_url}/{year}", base_url] if year else [base_url]
 
     got_404_everywhere = True
+    playwright_candidate = None  # first URL that returned 200 but empty (JS-rendered)
     for url in urls_to_try:
         names, got_404 = fetch_roster_static(url)
         if names:
@@ -179,16 +181,17 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
             return names, False
         if not got_404:
             got_404_everywhere = False
+            if playwright_candidate is None:
+                playwright_candidate = url  # remember first 200-but-empty URL
 
     # If every URL returned a 404, the school doesn't use this path — skip Playwright
     if got_404_everywhere:
         logger.warning("All URLs 404 for %s %s — skipping Playwright", school, sport)
         return [], False
 
-    # Static returned empty (JS-rendered) — try Playwright on the year-specific URL
-    primary_url = urls_to_try[0]
-    logger.info("Static empty for %s %s — trying Playwright on %s", school, sport, primary_url)
-    names = fetch_roster_playwright(primary_url)
+    # Static returned empty (JS-rendered) — try Playwright on the first URL that loaded
+    logger.info("Static empty for %s %s — trying Playwright on %s", school, sport, playwright_candidate)
+    names = fetch_roster_playwright(playwright_candidate)
     return names, True
 
 

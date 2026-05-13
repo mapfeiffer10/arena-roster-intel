@@ -105,6 +105,15 @@ SPORT_SLUGS = {
 }
 
 # ---------------------------------------------------------------------------
+# Per-school sport slug overrides
+# Some schools use non-standard slugs for certain sports.
+# Format: ("School Name", "sport-slug") → "sidearm-slug"
+# ---------------------------------------------------------------------------
+SCHOOL_SPORT_SLUG_OVERRIDES = {
+    ("Louisiana State University", "baseball"): "bsb",
+}
+
+# ---------------------------------------------------------------------------
 # Schools
 #
 # To add a non-Power 4 school, append it to the relevant section below.
@@ -124,7 +133,7 @@ SCHOOL_DOMAINS = {
     "University of Miami (FL)":     "hurricanesports.com",
     "North Carolina State University": "gopack.com",
     "University of North Carolina": "goheels.com",
-    "University of Notre Dame":     "und.com",
+    "University of Notre Dame":     "fightingirish.com",
     "University of Pittsburgh":     "pittsburghpanthers.com",
     "Syracuse University":          "cuse.com",
     "University of Virginia":       "virginiasports.com",
