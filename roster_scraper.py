@@ -159,6 +159,46 @@ def fetch_roster_playwright(url: str) -> list[str]:
         return []
 
 
+def fetch_roster_new_sidearm(domain: str, sport_slug: str) -> list[str]:
+    """
+    Fetch roster from new WMT/Sidearm platform (website-api).
+    These schools block headless browsers but expose a public JSON API.
+    """
+    try:
+        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+        r = requests.get(
+            f"https://{domain}/website-api/rosters",
+            params={"include": "season", "sort": "-id", "per_page": 50},
+            headers=headers, timeout=10,
+        )
+        if r.status_code != 200 or not r.text.strip():
+            return []
+        rosters = r.json().get("data", [])
+        target = next((x for x in rosters if sport_slug.lower() in x.get("name", "").lower()), None)
+        if not target:
+            return []
+        roster_id = target["id"]
+
+        r2 = requests.get(
+            f"https://{domain}/website-api/player-rosters",
+            params={"filter[roster_id]": roster_id, "include": "player", "per_page": 300},
+            headers=headers, timeout=10,
+        )
+        if r2.status_code != 200:
+            return []
+        entries = r2.json().get("data", [])
+        names = []
+        for e in entries:
+            player = e.get("player") or {}
+            name = player.get("full_name") or f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
+            if name:
+                names.append(name)
+        return names
+    except Exception as exc:
+        logger.warning("New Sidearm API fetch failed for %s: %s", domain, exc)
+        return []
+
+
 def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
     domain = SCHOOL_DOMAINS.get(school)
     if not domain:
@@ -182,17 +222,26 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
         if not got_404:
             got_404_everywhere = False
             if playwright_candidate is None:
-                playwright_candidate = url  # remember first 200-but-empty URL
+                playwright_candidate = url
 
     # If every URL returned a 404, the school doesn't use this path — skip Playwright
     if got_404_everywhere:
         logger.warning("All URLs 404 for %s %s — skipping Playwright", school, sport)
         return [], False
 
-    # Static returned empty (JS-rendered) — try Playwright on the first URL that loaded
+    # Try Playwright (works for some JS-rendered pages)
     logger.info("Static empty for %s %s — trying Playwright on %s", school, sport, playwright_candidate)
     names = fetch_roster_playwright(playwright_candidate)
-    return names, True
+    if names:
+        return names, True
+
+    # Playwright failed — try new Sidearm website-api (blocks headless browsers but exposes JSON API)
+    logger.info("Playwright empty for %s %s — trying new Sidearm API", school, sport)
+    sport_label = slug.replace("-", " ")  # e.g. "baseball", "mens lacrosse"
+    names = fetch_roster_new_sidearm(domain, sport_label)
+    if names:
+        logger.info("New Sidearm API returned %d names for %s %s", len(names), school, sport)
+    return names, bool(names)
 
 
 # ---------------------------------------------------------------------------
