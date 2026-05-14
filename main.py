@@ -61,12 +61,7 @@ def sync(dry_run):
 
 @cli.command()
 @click.option("--school", default=None, help="Run for a single school (exact name from config).")
-@click.option(
-    "--sport",
-    default=None,
-    type=click.Choice(["baseball", "softball", "mens-lacrosse", "womens-lacrosse"], case_sensitive=False),
-    help="Run for a single sport.",
-)
+@click.option("--sport", default=None, help="Run for a single sport slug (e.g. mens-tennis).")
 @click.option("--dry-run", is_flag=True, help="Log actions without writing to the database.")
 def scrape(school, sport, dry_run):
     """Scrape rosters → match against ARENA → update database."""
