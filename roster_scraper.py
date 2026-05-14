@@ -173,19 +173,44 @@ def fetch_roster_new_sidearm(domain: str, sport_slug: str) -> list[str]:
         )
         if r.status_code != 200 or not r.text.strip():
             return []
-        rosters = r.json().get("data", [])
-        sport_rosters = [x for x in rosters if sport_slug.lower() in x.get("name", "").lower()]
+        import re as _re
+
+        # Paginate through all rosters to find sport-specific ones (some schools have 400+)
+        all_rosters = r.json().get("data", [])
+        meta = r.json().get("meta", {})
+        total = meta.get("total", 0)
+        page = 2
+        while len(all_rosters) < total:
+            rp = requests.get(
+                f"https://{domain}/website-api/rosters",
+                params={"sort": "-id", "per_page": 50, "page": page},
+                headers=headers, timeout=10,
+            )
+            if rp.status_code != 200:
+                break
+            batch = rp.json().get("data", [])
+            if not batch:
+                break
+            all_rosters.extend(batch)
+            page += 1
+
+        sport_rosters = [x for x in all_rosters if sport_slug.lower() in x.get("name", "").lower()]
         if not sport_rosters:
             return []
-        target = sport_rosters[0]  # already sorted by -id (most recent first)
 
-        # Reject stale rosters — only accept current or recent seasons (2023+)
+        # Pick the roster with the most recent year in its name
+        def _max_year(roster):
+            years = _re.findall(r"\d{4}", roster.get("name", ""))
+            return max(int(y) for y in years) if years else 0
+
+        target = max(sport_rosters, key=_max_year)
         roster_name = target.get("name", "")
-        import re as _re
-        years = _re.findall(r"\d{4}", roster_name)
-        if years and max(int(y) for y in years) < 2023:
+
+        # Reject stale rosters — only accept 2023 or newer
+        if _max_year(target) < 2023:
             logger.warning("New Sidearm API: most recent %s roster is stale (%s) — skipping", sport_slug, roster_name)
             return []
+        logger.info("New Sidearm API: using roster '%s' (id=%s)", roster_name, target["id"])
         roster_id = target["id"]
 
         r2 = requests.get(
