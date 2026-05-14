@@ -174,8 +174,17 @@ def fetch_roster_new_sidearm(domain: str, sport_slug: str) -> list[str]:
         if r.status_code != 200 or not r.text.strip():
             return []
         rosters = r.json().get("data", [])
-        target = next((x for x in rosters if sport_slug.lower() in x.get("name", "").lower()), None)
-        if not target:
+        sport_rosters = [x for x in rosters if sport_slug.lower() in x.get("name", "").lower()]
+        if not sport_rosters:
+            return []
+        target = sport_rosters[0]  # already sorted by -id (most recent first)
+
+        # Reject stale rosters — only accept current or recent seasons (2023+)
+        roster_name = target.get("name", "")
+        import re as _re
+        years = _re.findall(r"\d{4}", roster_name)
+        if years and max(int(y) for y in years) < 2023:
+            logger.warning("New Sidearm API: most recent %s roster is stale (%s) — skipping", sport_slug, roster_name)
             return []
         roster_id = target["id"]
 
