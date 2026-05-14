@@ -289,7 +289,7 @@ def fetch_arena_for_school_sport(school: str, sport: str) -> list[dict]:
         resp = requests.get(
             ARENA_BASE_URL,
             headers={"X-Internal-Api-Key": ARENA_API_KEY},
-            params={"status": "live", "school": school, "sport": sport,
+            params={"status": "live", "school": school, "sport": sport.replace("-", "_"),
                     "per_page": ARENA_PAGE_SIZE, "page": page},
             timeout=30,
         )
