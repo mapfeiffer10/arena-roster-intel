@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ARENA Roster Intel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #1a1a2e;
+      --accent: #e94560;
+      --signed: #198754;
+      --ghost: #dc3545;
+      --gap: #fd7e14;
+      --pending: #6c757d;
+    }
+    body { background: #f4f6f9; font-size: 0.875rem; }
+
+    .navbar { background: var(--brand); }
+    .navbar-brand { font-weight: 700; letter-spacing: .5px; color: #fff !important; font-size: 1.1rem; }
+    .navbar-brand span { color: var(--accent); }
+    .nav-link { color: rgba(255,255,255,.7) !important; font-size: .85rem; }
+    .nav-link:hover, .nav-link.active { color: #fff !important; }
+
+    .stat-card {
+      background: #fff; border-radius: 10px; padding: 14px 20px;
+      border-left: 4px solid var(--brand);
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .stat-card.signed  { border-color: var(--signed); }
+    .stat-card.ghost   { border-color: var(--ghost); }
+    .stat-card.gap     { border-color: var(--gap); }
+    .stat-num   { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: .72rem; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+
+    .table-wrap { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07); overflow: hidden; }
+    .table { margin-bottom: 0; }
+    .table thead th {
+      background: var(--brand); color: #fff; font-weight: 500; font-size: .78rem;
+      text-transform: uppercase; letter-spacing: .4px; border: none;
+      white-space: nowrap; cursor: pointer; user-select: none; padding: 10px 14px;
+    }
+    .table thead th:hover { background: #2a2a4e; }
+    .table thead th .sort-icon { opacity: .4; font-size: .7rem; margin-left: 3px; }
+    .table thead th.active-sort .sort-icon { opacity: 1; }
+    .table tbody tr { cursor: pointer; transition: background .1s; }
+    .table tbody tr:hover { background: #f0f4ff; }
+    .table td { vertical-align: middle; padding: 9px 14px; border-color: #f0f0f0; }
+    .table tfoot td { background: #f8f9fa; font-weight: 700; font-size: .82rem; padding: 9px 14px; border-top: 2px solid #dee2e6; }
+
+    .bar-cell { min-width: 120px; }
+    .bar-wrap { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; display: flex; }
+    .bar-seg { height: 100%; }
+    .bar-signed  { background: var(--signed); }
+    .bar-ghost   { background: var(--ghost); }
+    .bar-gap     { background: var(--gap); }
+    .bar-pending { background: #ced4da; }
+
+    .num-signed  { color: var(--signed);  font-weight: 600; }
+    .num-ghost   { color: var(--ghost);   font-weight: 600; }
+    .num-gap     { color: var(--gap);     font-weight: 600; }
+    .num-pending { color: var(--pending); }
+    .num-zero    { color: #d1d5db; }
+
+    .pivot-toggle .btn { font-size: .82rem; }
+    .pivot-toggle .btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+    .search-wrap input { font-size: .82rem; }
+
+    .pct-badge {
+      font-size: .68rem; color: #6b7280; background: #f3f4f6;
+      border-radius: 20px; padding: 2px 7px; white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-4 py-3">
+  <a class="navbar-brand" href="/"><span>ARENA</span> Roster Intel</a>
+  <div class="d-flex gap-3 align-items-center">
+    <a href="/" class="nav-link"><i class="bi bi-table me-1"></i>Athlete Table</a>
+    <a href="/dashboard" class="nav-link active"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-3" style="max-width: 1400px;">
+
+  <!-- Summary stat cards -->
+  <div class="row g-3 mb-4" id="stats-row">
+    <div class="col-6 col-md-2">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">Total Athletes</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card signed">
+        <div class="stat-num" id="stat-signed">—</div>
+        <div class="stat-label">✅ Signed</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card ghost">
+        <div class="stat-num" id="stat-ghost">—</div>
+        <div class="stat-label">🚨 Ghost</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card gap">
+        <div class="stat-num" id="stat-gap">—</div>
+        <div class="stat-label">⚠️ Gap</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-pending">—</div>
+        <div class="stat-label">🔄 Pending</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-sports">—</div>
+        <div class="stat-label">Sports Tracked</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls row -->
+  <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-3">
+    <div class="pivot-toggle btn-group" role="group">
+      <button class="btn btn-outline-secondary active" id="btn-by-sport" onclick="setPivot('sport')">
+        <i class="bi bi-trophy me-1"></i>By Sport
+      </button>
+      <button class="btn btn-outline-secondary" id="btn-by-school" onclick="setPivot('school')">
+        <i class="bi bi-building me-1"></i>By School
+      </button>
+    </div>
+    <div class="search-wrap" style="width:260px">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+        <input type="text" id="search-input" class="form-control border-start-0" placeholder="Filter rows…" oninput="filterRows()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-responsive">
+      <table class="table table-hover" id="dash-table">
+        <thead id="dash-thead">
+          <!-- rendered by JS -->
+        </thead>
+        <tbody id="dash-tbody">
+          <tr><td colspan="7" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>
+        </tbody>
+        <tfoot id="dash-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  let pivot = "sport";
+  let rawData = [];
+  let sortCol = "total";
+  let sortDir = "desc";
+
+  // ---------------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    loadStats();
+    loadDashboard();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Data
+  // ---------------------------------------------------------------------------
+  async function loadStats() {
+    const res = await fetch("/api/stats");
+    const d = await res.json();
+    document.getElementById("stat-total").textContent   = d.total.toLocaleString();
+    document.getElementById("stat-signed").textContent  = d.signed.toLocaleString();
+    document.getElementById("stat-ghost").textContent   = d.ghost.toLocaleString();
+    document.getElementById("stat-gap").textContent     = d.gap.toLocaleString();
+    document.getElementById("stat-pending").textContent = d.pending.toLocaleString();
+  }
+
+  async function loadDashboard() {
+    document.getElementById("dash-tbody").innerHTML =
+      `<tr><td colspan="7" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>`;
+    const res = await fetch(`/api/dashboard?pivot=${pivot}`);
+    rawData = await res.json();
+    document.getElementById("stat-sports").textContent =
+      pivot === "sport" ? rawData.length : "—";
+    renderTable();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pivot toggle
+  // ---------------------------------------------------------------------------
+  function setPivot(p) {
+    pivot = p;
+    document.getElementById("btn-by-sport").classList.toggle("active", p === "sport");
+    document.getElementById("btn-by-school").classList.toggle("active", p === "school");
+    document.getElementById("search-input").value = "";
+    sortCol = "total";
+    sortDir = "desc";
+    loadDashboard();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sort
+  // ---------------------------------------------------------------------------
+  function setSort(col) {
+    if (sortCol === col) sortDir = sortDir === "asc" ? "desc" : "asc";
+    else { sortCol = col; sortDir = col === "name" ? "asc" : "desc"; }
+    renderTable();
+  }
+
+  function sorted(data) {
+    return [...data].sort((a, b) => {
+      let av = sortCol === "name" ? a.name : a[sortCol];
+      let bv = sortCol === "name" ? b.name : b[sortCol];
+      if (typeof av === "string") av = av.toLowerCase();
+      if (typeof bv === "string") bv = bv.toLowerCase();
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filter
+  // ---------------------------------------------------------------------------
+  function filterRows() {
+    renderTable();
+  }
+
+  function filtered(data) {
+    const q = document.getElementById("search-input").value.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter(r => r.name.toLowerCase().includes(q));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  function renderTable() {
+    const label = pivot === "sport" ? "Sport" : "School";
+    const colKey = pivot === "sport" ? "sport" : "school";
+
+    // Header
+    document.getElementById("dash-thead").innerHTML = `
+      <tr>
+        <th onclick="setSort('name')" data-col="name">
+          ${label} ${sortIcon("name")}
+        </th>
+        <th onclick="setSort('signed')" data-col="signed" class="text-end">
+          ✅ Signed ${sortIcon("signed")}
+        </th>
+        <th onclick="setSort('ghost')" data-col="ghost" class="text-end">
+          🚨 Ghost ${sortIcon("ghost")}
+        </th>
+        <th onclick="setSort('gap')" data-col="gap" class="text-end">
+          ⚠️ Gap ${sortIcon("gap")}
+        </th>
+        <th onclick="setSort('pending')" data-col="pending" class="text-end">
+          🔄 Pending ${sortIcon("pending")}
+        </th>
+        <th onclick="setSort('total')" data-col="total" class="text-end">
+          Total ${sortIcon("total")}
+        </th>
+        <th class="bar-cell">Breakdown</th>
+      </tr>`;
+
+    const display = sorted(filtered(rawData));
+
+    if (!display.length) {
+      document.getElementById("dash-tbody").innerHTML =
+        `<tr><td colspan="7" class="text-center py-5 text-muted">No rows match.</td></tr>`;
+      document.getElementById("dash-tfoot").innerHTML = "";
+      return;
+    }
+
+    document.getElementById("dash-tbody").innerHTML = display.map(r => {
+      const pct = r.total > 0 ? {
+        s: r.signed  / r.total * 100,
+        g: r.ghost   / r.total * 100,
+        a: r.gap     / r.total * 100,
+        p: r.pending / r.total * 100,
+      } : { s:0, g:0, a:0, p:0 };
+
+      const signedPct = r.total > 0 ? Math.round(r.signed / r.total * 100) : 0;
+
+      const rowUrl = pivot === "sport"
+        ? `/?sport=${encodeURIComponent(r.name)}`
+        : `/?school=${encodeURIComponent(r.name)}`;
+
+      return `
+        <tr onclick="window.location='${rowUrl}'">
+          <td><strong>${esc(fmtName(r.name))}</strong></td>
+          <td class="text-end ${r.signed  ? 'num-signed'  : 'num-zero'}">${r.signed.toLocaleString()}</td>
+          <td class="text-end ${r.ghost   ? 'num-ghost'   : 'num-zero'}">${r.ghost.toLocaleString()}</td>
+          <td class="text-end ${r.gap     ? 'num-gap'     : 'num-zero'}">${r.gap.toLocaleString()}</td>
+          <td class="text-end ${r.pending ? 'num-pending' : 'num-zero'}">${r.pending.toLocaleString()}</td>
+          <td class="text-end">
+            ${r.total.toLocaleString()}
+            <span class="pct-badge ms-1">${signedPct}% signed</span>
+          </td>
+          <td class="bar-cell">
+            <div class="bar-wrap">
+              <div class="bar-seg bar-signed"  style="width:${pct.s}%"></div>
+              <div class="bar-seg bar-ghost"   style="width:${pct.g}%"></div>
+              <div class="bar-seg bar-gap"     style="width:${pct.a}%"></div>
+              <div class="bar-seg bar-pending" style="width:${pct.p}%"></div>
+            </div>
+          </td>
+        </tr>`;
+    }).join("");
+
+    // Footer totals
+    const tot = display.reduce((acc, r) => {
+      acc.signed  += r.signed;
+      acc.ghost   += r.ghost;
+      acc.gap     += r.gap;
+      acc.pending += r.pending;
+      acc.total   += r.total;
+      return acc;
+    }, {signed:0, ghost:0, gap:0, pending:0, total:0});
+
+    const totSignedPct = tot.total > 0 ? Math.round(tot.signed / tot.total * 100) : 0;
+
+    document.getElementById("dash-tfoot").innerHTML = `
+      <tr>
+        <td>Total (${display.length} rows)</td>
+        <td class="text-end">${tot.signed.toLocaleString()}</td>
+        <td class="text-end">${tot.ghost.toLocaleString()}</td>
+        <td class="text-end">${tot.gap.toLocaleString()}</td>
+        <td class="text-end">${tot.pending.toLocaleString()}</td>
+        <td class="text-end">${tot.total.toLocaleString()} <span class="pct-badge ms-1">${totSignedPct}% signed</span></td>
+        <td></td>
+      </tr>`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+  function sortIcon(col) {
+    if (sortCol !== col) return `<i class="bi bi-chevron-expand sort-icon"></i>`;
+    return `<i class="bi bi-chevron-${sortDir === 'asc' ? 'up' : 'down'} sort-icon" style="opacity:1"></i>`;
+  }
+
+  function fmtName(s) {
+    if (!s) return "—";
+    // Convert underscore sport slugs to readable labels
+    return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
+  }
+</script>
+</body>
+</html>

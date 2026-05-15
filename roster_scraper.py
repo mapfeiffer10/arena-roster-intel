@@ -323,10 +323,12 @@ def match_to_roster(arena_name: str, roster_names: list[str]) -> Optional[str]:
 def process_school_sport(school: str, sport: str, dry_run: bool = False) -> dict:
     stats = {"signed": 0, "ghost": 0, "gap": 0, "errors": 0}
     today = date.today().isoformat()
+    sport_slug = sport  # hyphenated, used for URL/config lookups
+    sport = sport.replace("-", "_")  # normalized, used for DB storage
 
     logger.info("--- %s / %s ---", school, sport)
 
-    roster_names, used_playwright = get_roster(school, sport)
+    roster_names, used_playwright = get_roster(school, sport_slug)
     if not roster_names:
         logger.warning("EMPTY ROSTER (JS-blocked?): %s %s", school, sport)
         stats["errors"] += 1
@@ -335,7 +337,7 @@ def process_school_sport(school: str, sport: str, dry_run: bool = False) -> dict
     if used_playwright:
         logger.info("Playwright returned %d players for %s %s", len(roster_names), school, sport)
 
-    arena_athletes = fetch_arena_for_school_sport(school, sport)
+    arena_athletes = fetch_arena_for_school_sport(school, sport_slug)
     logger.info("ARENA: %d live athletes", len(arena_athletes))
 
     matched_roster: set[str] = set()

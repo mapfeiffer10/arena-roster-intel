@@ -19,8 +19,10 @@
 
     /* Nav */
     .navbar { background: var(--brand); }
-    .navbar-brand { font-weight: 700; letter-spacing: .5px; color: #fff !important; font-size: 1.1rem; }
+    .navbar-brand { font-weight: 700; letter-spacing: .5px; color: #fff !important; font-size: 1.1rem; text-decoration: none; }
     .navbar-brand span { color: var(--accent); }
+    .nav-link { color: rgba(255,255,255,.7) !important; font-size: .85rem; text-decoration: none; }
+    .nav-link:hover, .nav-link.active { color: #fff !important; }
 
     /* Stats bar */
     .stat-card {
@@ -106,10 +108,12 @@
 
 <!-- Navbar -->
 <nav class="navbar navbar-dark px-4 py-3">
-  <span class="navbar-brand"><span>ARENA</span> Roster Intel</span>
-  <div class="d-flex gap-2 align-items-center">
+  <a class="navbar-brand" href="/"><span>ARENA</span> Roster Intel</a>
+  <div class="d-flex gap-3 align-items-center">
+    <a href="/" class="nav-link active"><i class="bi bi-table me-1"></i>Athlete Table</a>
+    <a href="/dashboard" class="nav-link"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a>
     <span id="last-synced-label" class="text-white-50" style="font-size:.78rem"></span>
-    <a href="/api/export.csv" class="btn btn-sm btn-outline-light">
+    <a href="/api/export.csv" class="btn btn-sm btn-outline-light ms-2">
       <i class="bi bi-download me-1"></i>Export CSV
     </a>
   </div>
@@ -337,9 +341,9 @@
   // Boot
   // ---------------------------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
-    loadFilterOptions();
+    loadFilterOptions();  // applies URL params after options are populated
     loadStats();
-    loadAthletes();
+    // loadAthletes() is called inside loadFilterOptions once dropdowns are ready
 
     document.getElementById("search").addEventListener("input", e => {
       clearTimeout(searchTimer);
@@ -407,6 +411,23 @@
     d.schools.forEach(s => schoolSel.add(new Option(s, s)));
     const sportSel = document.getElementById("filter-sport");
     d.sports.forEach(s => sportSel.add(new Option(fmtSport(s), s)));
+
+    // Apply any filters passed via URL params (e.g. from Dashboard deep-links)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("sport")) {
+      filters.sport = params.get("sport");
+      sportSel.value = filters.sport;
+    }
+    if (params.get("school")) {
+      filters.school = params.get("school");
+      schoolSel.value = filters.school;
+    }
+    if (params.get("roster_match")) {
+      filters.roster_match = params.get("roster_match");
+      document.getElementById("filter-roster").value = filters.roster_match;
+    }
+
+    loadAthletes();
   }
 
   // ---------------------------------------------------------------------------

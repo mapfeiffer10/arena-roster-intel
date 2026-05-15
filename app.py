@@ -29,6 +29,11 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
+
+
 # ---------------------------------------------------------------------------
 # API — read
 # ---------------------------------------------------------------------------
@@ -89,6 +94,30 @@ def get_athletes():
         "per_page": per_page,
         "pages":    paginated.pages,
     })
+
+
+@app.route("/api/dashboard")
+def dashboard_data():
+    pivot = request.args.get("pivot", "sport")  # "sport" or "school"
+
+    sql = """
+        SELECT
+            {col},
+            COUNT(*) FILTER (WHERE roster_match = '✅ Signed')   AS signed,
+            COUNT(*) FILTER (WHERE roster_match = '🚨 Ghost')    AS ghost,
+            COUNT(*) FILTER (WHERE roster_match = '⚠️ Gap')      AS gap,
+            COUNT(*) FILTER (WHERE roster_match = '🔄 Pending Review') AS pending,
+            COUNT(*) AS total
+        FROM athletes
+        GROUP BY {col}
+        ORDER BY {col}
+    """.format(col="sport" if pivot == "sport" else "school")
+
+    rows = db.session.execute(db.text(sql)).fetchall()
+    return jsonify([
+        {"name": r[0], "signed": r[1], "ghost": r[2], "gap": r[3], "pending": r[4], "total": r[5]}
+        for r in rows if r[0]
+    ])
 
 
 @app.route("/api/stats")
