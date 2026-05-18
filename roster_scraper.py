@@ -85,6 +85,9 @@ SIDEARM_SELECTORS = [
     # Older Sidearm — person details
     ".s-person-details__personal-single-item a",
     ".s-person-details__name",
+    # Classic Sidearm (Georgetown-style) — name inside jersey+name div
+    ".sidearm-roster-player-name h3 a",
+    ".sidearm-roster-player-name h3",
     # Legacy Sidearm
     ".roster_player_name a",
     ".roster_player_name",
@@ -445,9 +448,14 @@ def process_school_sport(school: str, sport: str, dry_run: bool = False) -> dict
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def run_scrape(school: Optional[str] = None, sport: Optional[str] = None, dry_run: bool = False) -> dict:
+def run_scrape(school: Optional[str] = None, sport: Optional[str] = None, dry_run: bool = False, all_sports: bool = False) -> dict:
     schools = [school] if school else list(SCHOOL_DOMAINS.keys())
-    sports  = [sport]  if sport  else TARGET_SPORTS
+    if sport:
+        sports = [sport]
+    elif all_sports:
+        sports = list(SPORT_ROSTER_YEARS.keys())
+    else:
+        sports = TARGET_SPORTS
 
     totals = {"signed": 0, "ghost": 0, "gap": 0, "errors": 0}
     js_blocked: list[str] = []

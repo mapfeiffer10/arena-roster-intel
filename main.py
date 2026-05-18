@@ -62,8 +62,9 @@ def sync(dry_run):
 @cli.command()
 @click.option("--school", default=None, help="Run for a single school (exact name from config).")
 @click.option("--sport", default=None, help="Run for a single sport slug (e.g. mens-tennis).")
+@click.option("--all-sports", is_flag=True, help="Scrape all sports in SPORT_ROSTER_YEARS (not just TARGET_SPORTS).")
 @click.option("--dry-run", is_flag=True, help="Log actions without writing to the database.")
-def scrape(school, sport, dry_run):
+def scrape(school, sport, all_sports, dry_run):
     """Scrape rosters → match against ARENA → update database."""
     from roster_scraper import run_scrape
     from config import SCHOOL_DOMAINS
@@ -77,7 +78,7 @@ def scrape(school, sport, dry_run):
         click.echo("DRY RUN — no changes will be written.")
 
     with app.app_context():
-        result = run_scrape(school=school, sport=sport, dry_run=dry_run)
+        result = run_scrape(school=school, sport=sport, dry_run=dry_run, all_sports=all_sports)
 
     click.echo("\n=== Scrape Results ===")
     click.echo(f"  ✅ Signed : {result['signed']}")
