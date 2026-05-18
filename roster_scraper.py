@@ -296,6 +296,9 @@ def fetch_arena_for_school_sport(school: str, sport: str) -> list[dict]:
                     "per_page": ARENA_PAGE_SIZE, "page": page},
             timeout=30,
         )
+        if resp.status_code == 400:
+            logging.warning(f"ARENA 400 for {school} / {sport} — sport not recognised by ARENA, skipping")
+            return []
         resp.raise_for_status()
         data = resp.json()
         batch = data.get("athletes") or data.get("data") or []
