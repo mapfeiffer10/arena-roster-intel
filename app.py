@@ -75,6 +75,7 @@ def get_athletes():
         "athlete_name":     Athlete.athlete_name,
         "school":           Athlete.school,
         "sport":            Athlete.sport,
+        "arena_status":     Athlete.arena_status,
         "roster_match":     Athlete.roster_match,
         "action_needed":    Athlete.action_needed,
         "action_completed": Athlete.action_completed,
