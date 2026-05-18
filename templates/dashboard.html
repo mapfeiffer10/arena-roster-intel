@@ -67,6 +67,15 @@
     .pivot-toggle .btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
 
     .search-wrap input { font-size: .82rem; }
+    .filter-select { font-size: .82rem; min-width: 180px; max-width: 260px; }
+
+    .team-hero {
+      background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      padding: 20px 24px; margin-bottom: 16px;
+    }
+    .team-hero h5 { font-weight: 700; margin-bottom: 12px; color: var(--brand); }
+    .hero-pct { font-size: 2.8rem; font-weight: 800; color: var(--signed); line-height: 1; }
+    .hero-sub { font-size: .8rem; color: #6c757d; margin-top: 2px; }
 
     .pct-badge {
       font-size: .68rem; color: #6b7280; background: #f3f4f6;
@@ -128,21 +137,35 @@
 
   <!-- Controls row -->
   <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-3">
-    <div class="pivot-toggle btn-group" role="group">
-      <button class="btn btn-outline-secondary active" id="btn-by-sport" onclick="setPivot('sport')">
-        <i class="bi bi-trophy me-1"></i>By Sport
-      </button>
-      <button class="btn btn-outline-secondary" id="btn-by-school" onclick="setPivot('school')">
-        <i class="bi bi-building me-1"></i>By School
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="pivot-toggle btn-group" role="group">
+        <button class="btn btn-outline-secondary active" id="btn-by-sport" onclick="setPivot('sport')">
+          <i class="bi bi-trophy me-1"></i>By Sport
+        </button>
+        <button class="btn btn-outline-secondary" id="btn-by-school" onclick="setPivot('school')">
+          <i class="bi bi-building me-1"></i>By School
+        </button>
+      </div>
+      <select id="filter-school" class="form-select form-select-sm filter-select" onchange="applyFilters()">
+        <option value="">All Schools</option>
+      </select>
+      <select id="filter-sport" class="form-select form-select-sm filter-select" onchange="applyFilters()">
+        <option value="">All Sports</option>
+      </select>
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()" id="clear-filters-btn" style="display:none">
+        <i class="bi bi-x-circle me-1"></i>Clear Filters
       </button>
     </div>
-    <div class="search-wrap" style="width:260px">
+    <div class="search-wrap" style="width:220px">
       <div class="input-group input-group-sm">
         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
         <input type="text" id="search-input" class="form-control border-start-0" placeholder="Filter rows…" oninput="filterRows()">
       </div>
     </div>
   </div>
+
+  <!-- Team hero card (shown when both school + sport are selected) -->
+  <div id="team-hero" class="team-hero" style="display:none"></div>
 
   <!-- Table -->
   <div class="table-wrap">
@@ -167,14 +190,56 @@
   let rawData = [];
   let sortCol = "total";
   let sortDir = "desc";
+  let activeSchool = "";
+  let activeSport  = "";
 
   // ---------------------------------------------------------------------------
   // Boot
   // ---------------------------------------------------------------------------
   document.addEventListener("DOMContentLoaded", () => {
+    loadFilterOptions();
     loadStats();
     loadDashboard();
   });
+
+  // ---------------------------------------------------------------------------
+  // Filter options
+  // ---------------------------------------------------------------------------
+  async function loadFilterOptions() {
+    const res = await fetch("/api/filter-options");
+    const d = await res.json();
+    const schoolSel = document.getElementById("filter-school");
+    const sportSel  = document.getElementById("filter-sport");
+    d.schools.forEach(s => {
+      const o = document.createElement("option"); o.value = s; o.textContent = s;
+      schoolSel.appendChild(o);
+    });
+    d.sports.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s;
+      o.textContent = s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      sportSel.appendChild(o);
+    });
+  }
+
+  function applyFilters() {
+    activeSchool = document.getElementById("filter-school").value;
+    activeSport  = document.getElementById("filter-sport").value;
+    document.getElementById("clear-filters-btn").style.display =
+      (activeSchool || activeSport) ? "" : "none";
+    document.getElementById("search-input").value = "";
+    sortCol = "total"; sortDir = "desc";
+    loadDashboard();
+  }
+
+  function clearFilters() {
+    document.getElementById("filter-school").value = "";
+    document.getElementById("filter-sport").value  = "";
+    activeSchool = ""; activeSport = "";
+    document.getElementById("clear-filters-btn").style.display = "none";
+    document.getElementById("search-input").value = "";
+    loadDashboard();
+  }
 
   // ---------------------------------------------------------------------------
   // Data
@@ -192,11 +257,89 @@
   async function loadDashboard() {
     document.getElementById("dash-tbody").innerHTML =
       `<tr><td colspan="7" class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Loading…</td></tr>`;
-    const res = await fetch(`/api/dashboard?pivot=${pivot}`);
+
+    let url = `/api/dashboard?pivot=${pivot}`;
+    if (activeSchool) url += `&school=${encodeURIComponent(activeSchool)}`;
+    if (activeSport)  url += `&sport=${encodeURIComponent(activeSport)}`;
+
+    const res = await fetch(url);
     rawData = await res.json();
     document.getElementById("stat-sports").textContent =
       pivot === "sport" ? rawData.length : "—";
+
+    renderTeamHero();
     renderTable();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Team hero — shown when both school + sport are pinned
+  // ---------------------------------------------------------------------------
+  function renderTeamHero() {
+    const hero = document.getElementById("team-hero");
+    if (!activeSchool || !activeSport) { hero.style.display = "none"; return; }
+
+    const totals = rawData.reduce((a, r) => {
+      a.signed  += r.signed;  a.ghost   += r.ghost;
+      a.gap     += r.gap;     a.pending += r.pending; a.total += r.total;
+      return a;
+    }, {signed:0, ghost:0, gap:0, pending:0, total:0});
+
+    const pct = totals.total > 0 ? Math.round(totals.signed / totals.total * 100) : 0;
+    const sportLabel = activeSport.replace(/_/g," ").replace(/\b\w/g, c=>c.toUpperCase());
+    const deepLink = `/?school=${encodeURIComponent(activeSchool)}&sport=${encodeURIComponent(activeSport)}&roster_match=%E2%9C%85%20Signed`;
+
+    hero.style.display = "";
+    hero.innerHTML = `
+      <h5><i class="bi bi-trophy-fill me-2"></i>${esc(activeSchool)} — ${esc(sportLabel)}</h5>
+      <div class="row g-3 align-items-center">
+        <div class="col-auto">
+          <div class="hero-pct">${pct}%</div>
+          <div class="hero-sub">of roster signed</div>
+        </div>
+        <div class="col">
+          <div class="row g-2 text-center">
+            <div class="col-6 col-md-3">
+              <div class="stat-card signed py-2">
+                <div class="stat-num" style="font-size:1.4rem">${totals.signed.toLocaleString()}</div>
+                <div class="stat-label">✅ Signed</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card ghost py-2">
+                <div class="stat-num" style="font-size:1.4rem">${totals.ghost.toLocaleString()}</div>
+                <div class="stat-label">🚨 Ghost</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card gap py-2">
+                <div class="stat-num" style="font-size:1.4rem">${totals.gap.toLocaleString()}</div>
+                <div class="stat-label">⚠️ Gap</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card py-2">
+                <div class="stat-num" style="font-size:1.4rem">${totals.pending.toLocaleString()}</div>
+                <div class="stat-label">🔄 Pending</div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-2">
+            <div class="bar-wrap" style="height:12px; border-radius:6px;">
+              ${totals.total > 0 ? `
+              <div class="bar-seg bar-signed"  style="width:${totals.signed/totals.total*100}%"></div>
+              <div class="bar-seg bar-ghost"   style="width:${totals.ghost/totals.total*100}%"></div>
+              <div class="bar-seg bar-gap"     style="width:${totals.gap/totals.total*100}%"></div>
+              <div class="bar-seg bar-pending" style="width:${totals.pending/totals.total*100}%"></div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="col-auto">
+          <a href="${deepLink}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-table me-1"></i>View Signed Athletes
+          </a>
+        </div>
+      </div>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -296,9 +439,15 @@
 
       const signedPct = r.total > 0 ? Math.round(r.signed / r.total * 100) : 0;
 
-      const rowUrl = pivot === "sport"
-        ? `/?sport=${encodeURIComponent(r.name)}`
-        : `/?school=${encodeURIComponent(r.name)}`;
+      // Deep-link: clicking a sport row applies sport + any active school filter, and vice versa
+      let rowUrl;
+      if (pivot === "sport") {
+        rowUrl = `/?sport=${encodeURIComponent(r.name)}`;
+        if (activeSchool) rowUrl += `&school=${encodeURIComponent(activeSchool)}`;
+      } else {
+        rowUrl = `/?school=${encodeURIComponent(r.name)}`;
+        if (activeSport) rowUrl += `&sport=${encodeURIComponent(activeSport)}`;
+      }
 
       return `
         <tr onclick="window.location='${rowUrl}'">

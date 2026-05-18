@@ -99,22 +99,38 @@ def get_athletes():
 
 @app.route("/api/dashboard")
 def dashboard_data():
-    pivot = request.args.get("pivot", "sport")  # "sport" or "school"
+    pivot  = request.args.get("pivot",  "sport")   # "sport" or "school"
+    school = request.args.get("school", "").strip()
+    sport  = request.args.get("sport",  "").strip()
+
+    col = "sport" if pivot == "sport" else "school"
+
+    where_clauses = []
+    params = {}
+    if school:
+        where_clauses.append("school = :school")
+        params["school"] = school
+    if sport:
+        where_clauses.append("sport = :sport")
+        params["sport"] = sport
+
+    where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
     sql = """
         SELECT
             {col},
-            COUNT(*) FILTER (WHERE roster_match = '✅ Signed')   AS signed,
-            COUNT(*) FILTER (WHERE roster_match = '🚨 Ghost')    AS ghost,
-            COUNT(*) FILTER (WHERE roster_match = '⚠️ Gap')      AS gap,
+            COUNT(*) FILTER (WHERE roster_match = '✅ Signed')        AS signed,
+            COUNT(*) FILTER (WHERE roster_match = '🚨 Ghost')         AS ghost,
+            COUNT(*) FILTER (WHERE roster_match = '⚠️ Gap')           AS gap,
             COUNT(*) FILTER (WHERE roster_match = '🔄 Pending Review') AS pending,
             COUNT(*) AS total
         FROM athletes
+        {where}
         GROUP BY {col}
-        ORDER BY {col}
-    """.format(col="sport" if pivot == "sport" else "school")
+        ORDER BY total DESC
+    """.format(col=col, where=where)
 
-    rows = db.session.execute(db.text(sql)).fetchall()
+    rows = db.session.execute(db.text(sql), params).fetchall()
     return jsonify([
         {"name": r[0], "signed": r[1], "ghost": r[2], "gap": r[3], "pending": r[4], "total": r[5]}
         for r in rows if r[0]
