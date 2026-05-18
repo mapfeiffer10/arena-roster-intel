@@ -72,6 +72,105 @@ def name_similarity(a: str, b: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# ESPN API fallback
+# ---------------------------------------------------------------------------
+
+# Maps our sport slugs → ESPN (sport, league) pairs
+ESPN_SPORT_MAP = {
+    "mens-basketball":   ("basketball", "mens-college-basketball"),
+    "womens-basketball": ("basketball", "womens-college-basketball"),
+    "football":          ("football",   "college-football"),
+}
+
+_espn_team_cache: dict[str, dict[str, str]] = {}  # sport_slug → {school_name_lower: team_id}
+
+
+def _build_espn_team_index(sport_slug: str) -> dict[str, str]:
+    """Fetch all ESPN teams for a sport and return lower-name → team_id mapping."""
+    if sport_slug in _espn_team_cache:
+        return _espn_team_cache[sport_slug]
+
+    espn_sport, espn_league = ESPN_SPORT_MAP[sport_slug]
+    try:
+        resp = requests.get(
+            f"https://site.api.espn.com/apis/site/v2/sports/{espn_sport}/{espn_league}/teams",
+            params={"limit": 1000},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        teams = resp.json().get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        index = {}
+        for t in teams:
+            team = t.get("team", {})
+            tid = team.get("id")
+            display = team.get("displayName", "")
+            location = team.get("location", "")
+            if tid and display:
+                index[display.lower()] = tid
+            if tid and location:
+                index[location.lower()] = tid
+        _espn_team_cache[sport_slug] = index
+        return index
+    except Exception as exc:
+        logger.warning("ESPN team index failed for %s: %s", sport_slug, exc)
+        return {}
+
+
+def _find_espn_team_id(school: str, sport_slug: str) -> Optional[str]:
+    """Fuzzy-match school name against ESPN team index. Returns team_id or None."""
+    index = _build_espn_team_index(sport_slug)
+    if not index:
+        return None
+    school_lower = school.lower()
+    # Exact match first
+    if school_lower in index:
+        return index[school_lower]
+    # Try each word in the school name
+    for key, tid in index.items():
+        if school_lower in key or key in school_lower:
+            return tid
+    return None
+
+
+def fetch_roster_espn(school: str, sport_slug: str) -> list[str]:
+    """Fetch roster names from ESPN API. Returns list of player names."""
+    if sport_slug not in ESPN_SPORT_MAP:
+        return []
+
+    team_id = _find_espn_team_id(school, sport_slug)
+    if not team_id:
+        logger.warning("ESPN: no team ID found for %s / %s", school, sport_slug)
+        return []
+
+    espn_sport, espn_league = ESPN_SPORT_MAP[sport_slug]
+    try:
+        resp = requests.get(
+            f"https://site.api.espn.com/apis/site/v2/sports/{espn_sport}/{espn_league}/teams/{team_id}/roster",
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        athletes = data.get("athletes", [])
+        names = []
+        for entry in athletes:
+            # Football: grouped by position — entry has "items" list
+            if "items" in entry:
+                for player in entry["items"]:
+                    n = player.get("displayName") or player.get("fullName")
+                    if n:
+                        names.append(n)
+            else:
+                # Basketball: flat list
+                n = entry.get("displayName") or entry.get("fullName")
+                if n:
+                    names.append(n)
+        return names
+    except Exception as exc:
+        logger.warning("ESPN roster fetch failed for %s / %s: %s", school, sport_slug, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Sidearm scraper
 # ---------------------------------------------------------------------------
 
@@ -261,9 +360,15 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
             if playwright_candidate is None:
                 playwright_candidate = url
 
-    # If every URL returned a 404, the school doesn't use this path — skip Playwright
+    # If every URL returned a 404, the school doesn't use this path — skip Playwright/Sidearm but still try ESPN
     if got_404_everywhere:
         logger.warning("All URLs 404 for %s %s — skipping Playwright", school, sport)
+        if sport in ESPN_SPORT_MAP:
+            logger.info("Trying ESPN API fallback for %s %s", school, sport)
+            names = fetch_roster_espn(school, sport)
+            if names:
+                logger.info("ESPN API returned %d names for %s %s", len(names), school, sport)
+                return names, False
         return [], False
 
     # Try Playwright (works for some JS-rendered pages)
@@ -278,7 +383,17 @@ def get_roster(school: str, sport: str) -> tuple[list[str], bool]:
     names = fetch_roster_new_sidearm(domain, sport_label)
     if names:
         logger.info("New Sidearm API returned %d names for %s %s", len(names), school, sport)
-    return names, bool(names)
+        return names, True
+
+    # All Sidearm methods failed — try ESPN API (covers football, men's/women's basketball)
+    if sport in ESPN_SPORT_MAP:
+        logger.info("Sidearm methods exhausted for %s %s — trying ESPN API", school, sport)
+        names = fetch_roster_espn(school, sport)
+        if names:
+            logger.info("ESPN API returned %d names for %s %s", len(names), school, sport)
+            return names, False
+
+    return [], False
 
 
 # ---------------------------------------------------------------------------
