@@ -140,8 +140,7 @@ SCHOOL_DOMAINS = {
     "Virginia Tech":                "hokiesports.com",
     "Wake Forest University":       "godeacs.com",
     "University of California":     "calbears.com",
-    # "SMU" not in ARENA — still scrape for Gap discovery
-    "SMU":                          "smumustangs.com",
+    "Southern Methodist University":  "smumustangs.com",
     "Stanford University":          "gostanford.com",
     # ---- Power 4: Big Ten ----
     "University of Illinois":       "fightingillini.com",
@@ -158,7 +157,7 @@ SCHOOL_DOMAINS = {
     "Penn State University":        "gopsusports.com",
     "Purdue University":            "purduesports.com",
     "Rutgers University":           "scarletknights.com",
-    "University of Wisconsin Madison": "uwbadgers.com",
+    "University of Wisconsin, Madison": "uwbadgers.com",
     "UCLA":                         "uclabruins.com",
     "University of Southern California": "usctrojans.com",
     # "University of Oregon" not in ARENA — still scrape for Gap discovery
@@ -168,10 +167,8 @@ SCHOOL_DOMAINS = {
     "University of Arizona":        "arizonawildcats.com",
     "Arizona State University":     "thesundevils.com",
     "Baylor University":            "baylorbears.com",
-    # "BYU" not in ARENA — still scrape for Gap discovery
-    "BYU":                          "byucougars.com",
-    # "Cincinnati" not in ARENA — still scrape for Gap discovery
-    "Cincinnati":                   "gobearcats.com",
+    "Brigham Young University":      "byucougars.com",
+    "University of Cincinnati":      "gobearcats.com",
     "University of Colorado":       "cubuffs.com",
     "University of Houston":        "uhcougars.com",
     "Iowa State University":        "cyclones.com",
