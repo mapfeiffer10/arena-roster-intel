@@ -330,6 +330,18 @@ SCHOOL_DOMAINS = {
     "California Baptist University":          "cbulancers.com",
     "Rhode Island College":                   "goanchormen.com",
     "Utah Tech University":                   "utahtechtrailblazers.com",
+
+    # Additional partner schools
+    "Hofstra University":                     "hofstrasports.com",
+    "Kennesaw State University":              "ksuowls.com",
+    "North Carolina A&T State University":    "ncataggies.com",
+    "Portland State University":              "goviks.com",
+    "Princeton University":                   "goprincetontigers.com",
+    "Purdue University Fort Wayne":           "pfw.edu",
+    "Sam Houston State University":           "gobearkats.com",
+    "Southern Illinois University":           "siusalukis.com",
+    "Texas State University":                 "txstatebobcats.com",
+    "Missouri State University":              "missouristatebears.com",
 }
 
 ALL_SCHOOLS = set(SCHOOL_DOMAINS.keys())
