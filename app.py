@@ -3,7 +3,7 @@ import io
 import os
 
 from flask import Flask, jsonify, render_template, request, Response
-from models import db, Athlete
+from models import db, Athlete, School
 
 app = Flask(__name__)
 
@@ -34,6 +34,11 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/schools")
+def schools_page():
+    return render_template("schools.html")
+
+
 # ---------------------------------------------------------------------------
 # API — read
 # ---------------------------------------------------------------------------
@@ -47,10 +52,20 @@ def get_athletes():
     sport       = request.args.get("sport", "").strip()
     roster_match = request.args.get("roster_match", "").strip()
     action_completed = request.args.get("action_completed", "").strip()
+    tier        = request.args.get("tier", "").strip()
+    am_owner    = request.args.get("am_owner", "").strip()
     sort_by     = request.args.get("sort", "athlete_name")
     sort_dir    = request.args.get("dir", "asc")
 
     q = Athlete.query
+
+    # Tier / AM filters require joining to schools table
+    if tier or am_owner:
+        q = q.join(School, School.name == Athlete.school, isouter=True)
+        if tier:
+            q = q.filter(School.tier == tier)
+        if am_owner:
+            q = q.filter(School.am_owner == am_owner)
 
     if search:
         q = q.filter(
@@ -99,36 +114,53 @@ def get_athletes():
 
 @app.route("/api/dashboard")
 def dashboard_data():
-    pivot  = request.args.get("pivot",  "sport")   # "sport" or "school"
-    school = request.args.get("school", "").strip()
-    sport  = request.args.get("sport",  "").strip()
+    pivot    = request.args.get("pivot",    "sport").strip()
+    school   = request.args.get("school",   "").strip()
+    sport    = request.args.get("sport",    "").strip()
+    tier     = request.args.get("tier",     "").strip()
+    am_owner = request.args.get("am_owner", "").strip()
 
     col = "sport" if pivot == "sport" else "school"
 
     where_clauses = []
     params = {}
+
     if school:
-        where_clauses.append("school = :school")
+        where_clauses.append("a.school = :school")
         params["school"] = school
     if sport:
-        where_clauses.append("sport = :sport")
+        where_clauses.append("a.sport = :sport")
         params["sport"] = sport
 
+    # Tier / AM filters require joining to schools table
+    join_schools = tier or am_owner
+    if tier:
+        where_clauses.append("s.tier = :tier")
+        params["tier"] = tier
+    if am_owner:
+        where_clauses.append("s.am_owner = :am_owner")
+        params["am_owner"] = am_owner
+
+    from_clause = "FROM athletes a"
+    if join_schools:
+        from_clause += " LEFT JOIN schools s ON s.name = a.school"
+
+    col_ref = f"a.{col}"
     where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
     sql = """
         SELECT
             {col},
-            COUNT(*) FILTER (WHERE roster_match = '✅ Signed')        AS signed,
-            COUNT(*) FILTER (WHERE roster_match = '🚨 Ghost')         AS ghost,
-            COUNT(*) FILTER (WHERE roster_match = '⚠️ Gap')           AS gap,
-            COUNT(*) FILTER (WHERE roster_match = '🔄 Pending Review') AS pending,
+            COUNT(*) FILTER (WHERE a.roster_match = '✅ Signed')        AS signed,
+            COUNT(*) FILTER (WHERE a.roster_match = '🚨 Ghost')         AS ghost,
+            COUNT(*) FILTER (WHERE a.roster_match = '⚠️ Gap')           AS gap,
+            COUNT(*) FILTER (WHERE a.roster_match = '🔄 Pending Review') AS pending,
             COUNT(*) AS total
-        FROM athletes
+        {from_clause}
         {where}
         GROUP BY {col}
         ORDER BY total DESC
-    """.format(col=col, where=where)
+    """.format(col=col_ref, from_clause=from_clause, where=where)
 
     rows = db.session.execute(db.text(sql), params).fetchall()
     return jsonify([
@@ -160,6 +192,115 @@ def filter_options():
     schools = [r[0] for r in db.session.query(Athlete.school).distinct().order_by(Athlete.school).all() if r[0]]
     sports  = [r[0] for r in db.session.query(Athlete.sport).distinct().order_by(Athlete.sport).all() if r[0]]
     return jsonify({"schools": schools, "sports": sports})
+
+
+# ---------------------------------------------------------------------------
+# API — schools (tier + AM management)
+# ---------------------------------------------------------------------------
+
+AMS = ["Annika Altekruse", "Alexis Young", "Molly Pfeiffer"]
+TIERS = ["High", "Medium", "Low", "Unassigned"]
+
+
+def _ensure_school_rows():
+    """Seed School rows for any school in athletes table that lacks one."""
+    existing = {s.name for s in School.query.all()}
+    athlete_schools = [
+        r[0] for r in db.session.query(Athlete.school).distinct().all() if r[0]
+    ]
+    new_rows = [School(name=s) for s in athlete_schools if s not in existing]
+    if new_rows:
+        db.session.bulk_save_objects(new_rows)
+        db.session.commit()
+
+
+@app.route("/api/schools")
+def get_schools():
+    _ensure_school_rows()
+    tier   = request.args.get("tier", "").strip()
+    am     = request.args.get("am_owner", "").strip()
+
+    q = School.query
+    if tier:
+        q = q.filter(School.tier == tier)
+    if am:
+        q = q.filter(School.am_owner == am)
+    schools = q.order_by(School.name).all()
+    return jsonify([s.to_dict() for s in schools])
+
+
+@app.route("/api/schools/<path:school_name>", methods=["PATCH"])
+def update_school(school_name):
+    school = School.query.filter_by(name=school_name).first()
+    if not school:
+        school = School(name=school_name)
+        db.session.add(school)
+    data = request.get_json(silent=True) or {}
+    if "tier" in data and data["tier"] in TIERS:
+        school.tier = data["tier"]
+    if "am_owner" in data and data["am_owner"] in AMS + ["Unassigned"]:
+        school.am_owner = data["am_owner"]
+    db.session.commit()
+    return jsonify(school.to_dict())
+
+
+# ---------------------------------------------------------------------------
+# API — AM comparison
+# ---------------------------------------------------------------------------
+
+@app.route("/api/am-comparison")
+def am_comparison():
+    results = []
+    for am in AMS:
+        schools = School.query.filter_by(am_owner=am).all()
+        school_names = [s.name for s in schools]
+
+        tier_counts = {"High": 0, "Medium": 0, "Low": 0, "Unassigned": 0}
+        for s in schools:
+            tier_counts[s.tier] = tier_counts.get(s.tier, 0) + 1
+
+        if not school_names:
+            results.append({
+                "am": am,
+                "schools": 0,
+                "tier_high": 0, "tier_medium": 0, "tier_low": 0,
+                "signed": 0, "ghost": 0, "gap": 0,
+                "signed_pct": 0, "total_sales": 0,
+            })
+            continue
+
+        sql = db.text("""
+            SELECT
+                COUNT(*) FILTER (WHERE roster_match = '✅ Signed')   AS signed,
+                COUNT(*) FILTER (WHERE roster_match = '🚨 Ghost')    AS ghost,
+                COUNT(*) FILTER (WHERE roster_match = '⚠️ Gap')      AS gap,
+                COUNT(*) AS total,
+                COALESCE(SUM(lifetime_sales), 0)                     AS total_sales
+            FROM athletes
+            WHERE school = ANY(:schools)
+        """)
+        row = db.session.execute(sql, {"schools": school_names}).fetchone()
+
+        signed  = row[0] or 0
+        ghost   = row[1] or 0
+        gap     = row[2] or 0
+        total   = row[3] or 0
+        sales   = float(row[4] or 0)
+        pct     = round(signed / total * 100, 1) if total > 0 else 0
+
+        results.append({
+            "am":          am,
+            "schools":     len(school_names),
+            "tier_high":   tier_counts["High"],
+            "tier_medium": tier_counts["Medium"],
+            "tier_low":    tier_counts["Low"],
+            "signed":      signed,
+            "ghost":       ghost,
+            "gap":         gap,
+            "signed_pct":  pct,
+            "total_sales": sales,
+        })
+    return jsonify(results)
 
 
 # ---------------------------------------------------------------------------

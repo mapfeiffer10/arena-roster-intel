@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>School Management — ARENA Roster Intel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #1a1a2e;
+      --accent: #e94560;
+    }
+    body { background: #f4f6f9; font-size: 0.875rem; }
+    .navbar { background: var(--brand); }
+    .navbar-brand { font-weight: 700; letter-spacing: .5px; color: #fff !important; font-size: 1.1rem; }
+    .navbar-brand span { color: var(--accent); }
+    .nav-link { color: rgba(255,255,255,.7) !important; font-size: .85rem; }
+    .nav-link:hover, .nav-link.active { color: #fff !important; }
+
+    .table-wrap { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07); overflow: hidden; }
+    .table { margin-bottom: 0; }
+    .table thead th {
+      background: var(--brand); color: #fff; font-weight: 500; font-size: .78rem;
+      text-transform: uppercase; letter-spacing: .4px; border: none;
+      white-space: nowrap; padding: 10px 14px;
+    }
+    .table tbody tr:hover { background: #f0f4ff; }
+    .table td { vertical-align: middle; padding: 8px 14px; border-color: #f0f0f0; }
+
+    .tier-badge {
+      display: inline-block; font-size: .72rem; font-weight: 600;
+      padding: 2px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .tier-High       { background: #fef9c3; color: #854d0e; }
+    .tier-Medium     { background: #dbeafe; color: #1e40af; }
+    .tier-Low        { background: #f3f4f6; color: #6b7280; }
+    .tier-Unassigned { background: #f3f4f6; color: #9ca3af; }
+
+    .am-badge {
+      display: inline-block; font-size: .72rem; font-weight: 500;
+      padding: 2px 10px; border-radius: 20px; background: #ede9fe; color: #5b21b6;
+      white-space: nowrap;
+    }
+    .am-unassigned { background: #f3f4f6; color: #9ca3af; }
+
+    .filter-select { font-size: .82rem; }
+    .save-indicator { font-size: .75rem; color: #198754; display: none; }
+
+    .stat-card {
+      background: #fff; border-radius: 10px; padding: 14px 20px;
+      border-left: 4px solid var(--brand);
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    .stat-num   { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: .72rem; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-4 py-3">
+  <a class="navbar-brand" href="/"><span>ARENA</span> Roster Intel</a>
+  <div class="d-flex gap-3 align-items-center">
+    <a href="/" class="nav-link"><i class="bi bi-table me-1"></i>Athlete Table</a>
+    <a href="/dashboard" class="nav-link"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a>
+    <a href="/schools" class="nav-link active"><i class="bi bi-building me-1"></i>Schools</a>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-3" style="max-width: 1200px;">
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4" id="summary-row">
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="border-color:#854d0e">
+        <div class="stat-num" id="count-high">—</div>
+        <div class="stat-label">🟡 High Tier</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="border-color:#1e40af">
+        <div class="stat-num" id="count-medium">—</div>
+        <div class="stat-label">🔵 Medium Tier</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="border-color:#6b7280">
+        <div class="stat-num" id="count-low">—</div>
+        <div class="stat-label">⚪ Low Tier</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card" style="border-color:#9ca3af">
+        <div class="stat-num" id="count-unassigned">—</div>
+        <div class="stat-label">Unassigned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+    <div class="d-flex flex-wrap gap-2">
+      <select id="filter-tier" class="form-select form-select-sm filter-select" style="width:150px" onchange="renderTable()">
+        <option value="">All Tiers</option>
+        <option>High</option>
+        <option>Medium</option>
+        <option>Low</option>
+        <option>Unassigned</option>
+      </select>
+      <select id="filter-am" class="form-select form-select-sm filter-select" style="width:190px" onchange="renderTable()">
+        <option value="">All AMs</option>
+        <option>Annika Altekruse</option>
+        <option>Alexis Young</option>
+        <option>Molly Pfeiffer</option>
+        <option>Unassigned</option>
+      </select>
+    </div>
+    <div class="input-group input-group-sm" style="width:240px">
+      <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+      <input type="text" id="search-input" class="form-control border-start-0" placeholder="Search schools…" oninput="renderTable()">
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-responsive">
+      <table class="table table-hover" id="schools-table">
+        <thead>
+          <tr>
+            <th style="width:40%">School</th>
+            <th style="width:20%">Tier</th>
+            <th style="width:25%">AM Owner</th>
+            <th style="width:15%"></th>
+          </tr>
+        </thead>
+        <tbody id="schools-tbody">
+          <tr><td colspan="4" class="text-center py-5 text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="text-muted mt-2 px-1" id="row-count" style="font-size:.78rem"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const AMS   = ["Annika Altekruse", "Alexis Young", "Molly Pfeiffer", "Unassigned"];
+  const TIERS = ["High", "Medium", "Low", "Unassigned"];
+
+  let allSchools = [];
+
+  document.addEventListener("DOMContentLoaded", loadSchools);
+
+  async function loadSchools() {
+    const res = await fetch("/api/schools");
+    allSchools = await res.json();
+    updateSummary();
+    renderTable();
+  }
+
+  function updateSummary() {
+    const counts = {High:0, Medium:0, Low:0, Unassigned:0};
+    allSchools.forEach(s => counts[s.tier] = (counts[s.tier] || 0) + 1);
+    document.getElementById("count-high").textContent       = counts.High;
+    document.getElementById("count-medium").textContent     = counts.Medium;
+    document.getElementById("count-low").textContent        = counts.Low;
+    document.getElementById("count-unassigned").textContent = counts.Unassigned;
+  }
+
+  function renderTable() {
+    const tierF = document.getElementById("filter-tier").value;
+    const amF   = document.getElementById("filter-am").value;
+    const q     = document.getElementById("search-input").value.trim().toLowerCase();
+
+    const display = allSchools.filter(s => {
+      if (tierF && s.tier !== tierF) return false;
+      if (amF  && s.am_owner !== amF) return false;
+      if (q    && !s.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    document.getElementById("row-count").textContent =
+      `Showing ${display.length} of ${allSchools.length} schools`;
+
+    if (!display.length) {
+      document.getElementById("schools-tbody").innerHTML =
+        `<tr><td colspan="4" class="text-center py-4 text-muted">No schools match.</td></tr>`;
+      return;
+    }
+
+    document.getElementById("schools-tbody").innerHTML = display.map(s => `
+      <tr id="row-${esc(s.name)}">
+        <td><strong>${esc(s.name)}</strong></td>
+        <td>
+          <span class="tier-badge tier-${esc(s.tier)}" id="tier-badge-${esc(s.name)}">${esc(s.tier)}</span>
+        </td>
+        <td>
+          <span class="am-badge ${s.am_owner === 'Unassigned' ? 'am-unassigned' : ''}"
+                id="am-badge-${esc(s.name)}">${esc(s.am_owner)}</span>
+        </td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-secondary" onclick="openEdit('${esc(s.name)}', '${esc(s.tier)}', '${esc(s.am_owner)}')">
+            <i class="bi bi-pencil"></i> Edit
+          </button>
+          <span class="save-indicator ms-2" id="saved-${esc(s.name)}"><i class="bi bi-check-circle-fill"></i> Saved</span>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  // Inline edit modal
+  let editingSchool = null;
+
+  function openEdit(name, tier, am) {
+    editingSchool = name;
+    document.getElementById("edit-school-name").textContent = name;
+    document.getElementById("edit-tier").value     = tier;
+    document.getElementById("edit-am").value       = am;
+    new bootstrap.Modal(document.getElementById("editModal")).show();
+  }
+
+  async function saveEdit() {
+    const tier = document.getElementById("edit-tier").value;
+    const am   = document.getElementById("edit-am").value;
+
+    const res = await fetch(`/api/schools/${encodeURIComponent(editingSchool)}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({tier, am_owner: am}),
+    });
+    if (!res.ok) { alert("Save failed."); return; }
+
+    // Update local data
+    const idx = allSchools.findIndex(s => s.name === editingSchool);
+    if (idx >= 0) { allSchools[idx].tier = tier; allSchools[idx].am_owner = am; }
+
+    bootstrap.Modal.getInstance(document.getElementById("editModal")).hide();
+    updateSummary();
+    renderTable();
+
+    // Flash saved indicator
+    const ind = document.getElementById(`saved-${esc(editingSchool)}`);
+    if (ind) { ind.style.display = "inline"; setTimeout(() => ind.style.display = "none", 2000); }
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;");
+  }
+</script>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2 px-3">
+        <h6 class="modal-title fw-bold" id="edit-school-name"></h6>
+        <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-3 py-3">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:.8rem">Tier</label>
+          <select id="edit-tier" class="form-select form-select-sm">
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+            <option>Unassigned</option>
+          </select>
+        </div>
+        <div class="mb-1">
+          <label class="form-label fw-semibold" style="font-size:.8rem">AM Owner</label>
+          <select id="edit-am" class="form-select form-select-sm">
+            <option>Annika Altekruse</option>
+            <option>Alexis Young</option>
+            <option>Molly Pfeiffer</option>
+            <option>Unassigned</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer py-2 px-3">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm btn-dark" onclick="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

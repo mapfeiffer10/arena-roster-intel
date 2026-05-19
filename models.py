@@ -3,6 +3,22 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+class School(db.Model):
+    __tablename__ = "schools"
+
+    id       = db.Column(db.Integer, primary_key=True)
+    name     = db.Column(db.String(200), unique=True, nullable=False, index=True)
+    tier     = db.Column(db.String(20),  default="Unassigned")   # High / Medium / Low / Unassigned
+    am_owner = db.Column(db.String(100), default="Unassigned")   # AM name or Unassigned
+
+    def to_dict(self):
+        return {
+            "name":     self.name,
+            "tier":     self.tier,
+            "am_owner": self.am_owner,
+        }
+
+
 class Athlete(db.Model):
     __tablename__ = "athletes"
 

@@ -120,6 +120,7 @@
   <div class="d-flex gap-3 align-items-center">
     <a href="/" class="nav-link active"><i class="bi bi-table me-1"></i>Athlete Table</a>
     <a href="/dashboard" class="nav-link"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a>
+    <a href="/schools" class="nav-link"><i class="bi bi-building me-1"></i>Schools</a>
     <span id="last-synced-label" class="text-white-50" style="font-size:.78rem"></span>
     <a href="/api/export.csv" class="btn btn-sm btn-outline-light ms-2">
       <i class="bi bi-download me-1"></i>Export CSV
@@ -202,6 +203,22 @@
           <option value="">All Actions</option>
           <option value="no">Action Incomplete</option>
           <option value="yes">Action Complete</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-tier" class="form-select form-select-sm">
+          <option value="">All Tiers</option>
+          <option value="High">🟡 High</option>
+          <option value="Medium">🔵 Medium</option>
+          <option value="Low">⚪ Low</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select id="filter-am" class="form-select form-select-sm">
+          <option value="">All AMs</option>
+          <option value="Annika Altekruse">Annika Altekruse</option>
+          <option value="Alexis Young">Alexis Young</option>
+          <option value="Molly Pfeiffer">Molly Pfeiffer</option>
         </select>
       </div>
       <div class="col-12 col-md-1 text-end">
@@ -341,7 +358,7 @@
   // State
   // ---------------------------------------------------------------------------
   let state = { page: 1, perPage: 50, sort: "athlete_name", dir: "asc", total: 0, pages: 0 };
-  let filters = { search: "", school: "", sport: "", roster_match: "", action_completed: "" };
+  let filters = { search: "", school: "", sport: "", roster_match: "", action_completed: "", tier: "", am_owner: "" };
   let editingId = null;
   let searchTimer = null;
   const modal = new bootstrap.Modal(document.getElementById("editModal"));
@@ -362,6 +379,8 @@
     document.getElementById("filter-sport").addEventListener("change", e => { filters.sport = e.target.value; state.page = 1; loadAthletes(); });
     document.getElementById("filter-roster").addEventListener("change", e => { filters.roster_match = e.target.value; state.page = 1; loadAthletes(); });
     document.getElementById("filter-completed").addEventListener("change", e => { filters.action_completed = e.target.value; state.page = 1; loadAthletes(); });
+    document.getElementById("filter-tier").addEventListener("change", e => { filters.tier = e.target.value; state.page = 1; loadAthletes(); });
+    document.getElementById("filter-am").addEventListener("change", e => { filters.am_owner = e.target.value; state.page = 1; loadAthletes(); });
 
     document.querySelectorAll("th[data-sort]").forEach(th => {
       th.addEventListener("click", () => {
@@ -388,6 +407,8 @@
     if (filters.sport)            p.set("sport", filters.sport);
     if (filters.roster_match)     p.set("roster_match", filters.roster_match);
     if (filters.action_completed) p.set("action_completed", filters.action_completed);
+    if (filters.tier)             p.set("tier", filters.tier);
+    if (filters.am_owner)         p.set("am_owner", filters.am_owner);
     return p;
   }
 

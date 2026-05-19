@@ -90,6 +90,7 @@
   <div class="d-flex gap-3 align-items-center">
     <a href="/" class="nav-link"><i class="bi bi-table me-1"></i>Athlete Table</a>
     <a href="/dashboard" class="nav-link active"><i class="bi bi-bar-chart-line me-1"></i>Dashboard</a>
+    <a href="/schools" class="nav-link"><i class="bi bi-building me-1"></i>Schools</a>
   </div>
 </nav>
 
@@ -152,6 +153,19 @@
       <select id="filter-sport" class="form-select form-select-sm filter-select" onchange="applyFilters()">
         <option value="">All Sports</option>
       </select>
+      <select id="filter-tier" class="form-select form-select-sm filter-select" style="width:140px" onchange="applyFilters()">
+        <option value="">All Tiers</option>
+        <option>High</option>
+        <option>Medium</option>
+        <option>Low</option>
+        <option>Unassigned</option>
+      </select>
+      <select id="filter-am" class="form-select form-select-sm filter-select" style="width:175px" onchange="applyFilters()">
+        <option value="">All AMs</option>
+        <option>Annika Altekruse</option>
+        <option>Alexis Young</option>
+        <option>Molly Pfeiffer</option>
+      </select>
       <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()" id="clear-filters-btn" style="display:none">
         <i class="bi bi-x-circle me-1"></i>Clear Filters
       </button>
@@ -166,6 +180,12 @@
 
   <!-- Team hero card (shown when both school + sport are selected) -->
   <div id="team-hero" class="team-hero" style="display:none"></div>
+
+  <!-- AM Comparison -->
+  <div id="am-comparison" class="mb-4" style="display:none">
+    <h6 class="fw-bold mb-3" style="color:var(--brand)"><i class="bi bi-people-fill me-2"></i>AM Comparison</h6>
+    <div id="am-comparison-cards" class="row g-3"></div>
+  </div>
 
   <!-- Table -->
   <div class="table-wrap">
@@ -192,6 +212,8 @@
   let sortDir = "desc";
   let activeSchool = "";
   let activeSport  = "";
+  let activeTier   = "";
+  let activeAM     = "";
 
   // ---------------------------------------------------------------------------
   // Boot
@@ -200,6 +222,7 @@
     loadFilterOptions();
     loadStats();
     loadDashboard();
+    loadAMComparison();
   });
 
   // ---------------------------------------------------------------------------
@@ -225,8 +248,10 @@
   function applyFilters() {
     activeSchool = document.getElementById("filter-school").value;
     activeSport  = document.getElementById("filter-sport").value;
-    document.getElementById("clear-filters-btn").style.display =
-      (activeSchool || activeSport) ? "" : "none";
+    activeTier   = document.getElementById("filter-tier").value;
+    activeAM     = document.getElementById("filter-am").value;
+    const anyActive = activeSchool || activeSport || activeTier || activeAM;
+    document.getElementById("clear-filters-btn").style.display = anyActive ? "" : "none";
     document.getElementById("search-input").value = "";
     sortCol = "total"; sortDir = "desc";
     loadDashboard();
@@ -235,10 +260,72 @@
   function clearFilters() {
     document.getElementById("filter-school").value = "";
     document.getElementById("filter-sport").value  = "";
-    activeSchool = ""; activeSport = "";
+    document.getElementById("filter-tier").value   = "";
+    document.getElementById("filter-am").value     = "";
+    activeSchool = ""; activeSport = ""; activeTier = ""; activeAM = "";
     document.getElementById("clear-filters-btn").style.display = "none";
     document.getElementById("search-input").value = "";
     loadDashboard();
+  }
+
+  // ---------------------------------------------------------------------------
+  // AM Comparison
+  // ---------------------------------------------------------------------------
+  async function loadAMComparison() {
+    const res = await fetch("/api/am-comparison");
+    const data = await res.json();
+
+    // Only show if at least one AM has schools assigned
+    const hasData = data.some(d => d.schools > 0);
+    const section = document.getElementById("am-comparison");
+    if (!hasData) return;
+    section.style.display = "";
+
+    document.getElementById("am-comparison-cards").innerHTML = data.map(d => `
+      <div class="col-md-4">
+        <div style="background:#fff; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,.07); padding:16px 20px;">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <strong style="font-size:.92rem">${esc(d.am)}</strong>
+            <span style="font-size:.72rem; background:#ede9fe; color:#5b21b6; border-radius:20px; padding:2px 10px; font-weight:600">
+              ${d.schools} schools
+            </span>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4 text-center">
+              <div style="font-size:1.4rem; font-weight:700; color:#854d0e">${d.tier_high}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">High</div>
+            </div>
+            <div class="col-4 text-center">
+              <div style="font-size:1.4rem; font-weight:700; color:#1e40af">${d.tier_medium}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Medium</div>
+            </div>
+            <div class="col-4 text-center">
+              <div style="font-size:1.4rem; font-weight:700; color:#6b7280">${d.tier_low}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Low</div>
+            </div>
+          </div>
+          <hr class="my-2">
+          <div class="row g-2 text-center">
+            <div class="col-6">
+              <div style="font-size:1.5rem; font-weight:800; color:#198754">${d.signed_pct}%</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Signed</div>
+            </div>
+            <div class="col-6">
+              <div style="font-size:1.5rem; font-weight:800; color:#dc3545">${d.ghost.toLocaleString()}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Ghosts</div>
+            </div>
+            <div class="col-6">
+              <div style="font-size:1.5rem; font-weight:800; color:#fd7e14">${d.gap.toLocaleString()}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Gap Opp.</div>
+            </div>
+            <div class="col-6">
+              <div style="font-size:1.1rem; font-weight:800; color:#1a1a2e">$${Math.round(d.total_sales).toLocaleString()}</div>
+              <div style="font-size:.68rem; color:#6c757d; text-transform:uppercase">Total Sales</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join("");
   }
 
   // ---------------------------------------------------------------------------
@@ -261,6 +348,8 @@
     let url = `/api/dashboard?pivot=${pivot}`;
     if (activeSchool) url += `&school=${encodeURIComponent(activeSchool)}`;
     if (activeSport)  url += `&sport=${encodeURIComponent(activeSport)}`;
+    if (activeTier)   url += `&tier=${encodeURIComponent(activeTier)}`;
+    if (activeAM)     url += `&am_owner=${encodeURIComponent(activeAM)}`;
 
     const res = await fetch(url);
     rawData = await res.json();
